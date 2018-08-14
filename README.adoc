@@ -1,0 +1,208 @@
+= Tools for Flash Cards (using AsciiDoc)
+:toc:
+
+Using the AsciiDoc format seems to be a good fit creating flash cards.  The
+scripts in this repository were put together to play with this idea as I study.
+If you have never heard of AsciiDoc, take a look at the following links.
+
+* https://asciidoctor.org/docs/what-is-asciidoc/[Asciidoctor Introduction]
+* http://asciidoc.org[Original AsciiDoc project home page.]
+
+== The tools
+
+* scripts/adoc is a simple wrapper (bash) for asciidoctor and asciidoctor-pdf
+    tools.
+* scripts/fcards is a Python 3 script that parses an individual AsciiDoc file
+    or a directory that contains multiple so that it can:
+** Create a bulk flash card file.
+** Create a consolidated AsciiDoc file for all of the examples that were found.
+** Also used to create a new file from a template.
+* scripts/update_deck is a bash script that uses both of the previous scripts,
+    but expects that the AsciiDoc files are in subdirectories, with an
+    objectives file in the current directory.
+
+== Details of the file
+
+A new AsciiDoc can be created with the fcards script.
+
+[source, console]
+----
+$ fcards -n test
+Creating:  test.adoc
+----
+
+We will walk through each part of the new file to try to explain the intent (and
+results) for each piece.
+
+=== The title and heading
+
+At the top of the file, each of the "card types" are listed with a default
+"word" in place.
+
+.Default header.
+[source, asciidoc]
+----
+= Utility: Term: Path: word
+
+The description of the word.
+----
+
+The three types (utility, term, path) change how flash cards are handled in some
+cases, but only in minor ways.  For example, only utility types can have
+examples.  Otherwise, the type is only seen in the card that is created from
+this section.  For example, modifying the default header to reflect a type of
+"Term" for the word "tree" would result in a card that looks like this.
+
+.Updated header (adoc file)
+[source, asciidoc]
+----
+= Utility: tree
+  
+The description of the tree.
+----
+
+.Resulting flash card.
+[source, text]
+----
+####################
+
+Describe the utility: tree
+
+ -------------------
+
+Term description: The description of the word.
+----
+
+NOTE:: The space at the beginning of the line of dashes (-) will normally be a
+    dash.
+
+NOTE:: Removing the remainder of the sections in the file is considered to be
+    valid and is useful for simple terms.
+
+NOTE:: The word from the document title (tree) is listed as a reminder for what
+    word is associated with each card.
+
+=== Sources section
+
+The sources section is a location to list where informaiton was gathered.  It
+will only be listed in the HTML file that is created.
+
+=== Files section
+
+The files section is intended to have the file name as the level 2 header, and
+the description of the file as the content. 
+
+
+.Files section.
+[source, asciidoc]
+----
+== Files
+
+=== some_file.txt
+
+This is a really important file.
+=== some_other_file.txt
+
+This is some other really important file.
+----
+
+.Cards for these two "files".
+[source, text]
+----
+####################
+
+tree: some_file.txt
+ -------------------
+
+This is a really important file.
+
+####################
+
+tree: some_other_file.txt
+ -------------------
+
+This is some other really important file.
+----
+
+=== Options section
+
+The options section is intended to show how to use options for commands, with an
+explanation for the content.
+
+
+.Options section
+[source, asciidoc]
+----
+== Options
+
+=== -x foo
+
+This option is just an example.
+
+=== -y bar
+
+Another option for the example.
+----
+
+.Cards for these two options.
+[source, text]
+----
+####################
+
+tree -x foo
+
+ -------------------
+
+Option for tree: This option is just an example.
+
+####################
+
+tree -y bar
+
+ -------------------
+
+Option for tree: Another option for the example.
+----
+
+=== General section
+
+The general section is for brief questions or statements that should jog your
+memory about the content.
+
+.General section
+[source, asciidoc]
+----
+== General
+
+=== Some brief statement or question.
+
+A description or answer to be remembered.
+
+=== Why did the chicken cross the road?
+
+To get to the other side ...
+----
+
+.Cards for these two.
+[source, text]
+----
+####################
+
+tree: Some brief statement or question.
+
+ -------------------
+
+A description or answer to be remembered.
+####################
+
+tree: Why did the chicken cross the road?
+
+ -------------------
+
+To get to the other side ...
+----
+
+=== Examples section
+
+The examples section is used to list example usage for the commands.  These are
+not made in to flash cards, and can be as long as necassary.

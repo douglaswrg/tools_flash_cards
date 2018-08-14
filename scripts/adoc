@@ -1,0 +1,90 @@
+#!/bin/bash
+
+EXT='html'
+OUT_DIR='/tmp'
+OPEN=1
+QUIET=0
+
+function strip_extension {
+    flength=${#1}
+    start=$((flength - 5))
+    if [[ ${1:$start:5} == '.adoc' ]]; then
+        echo ${1:0:$start}
+    else
+        echo 'ERROR: Only support .adoc extentions.' 1>&2
+        exit 1
+    fi
+}
+
+function usage {
+    bn=`basename $0`
+    echo "$bn [-p] [-n] [-o out_dir] filename"
+    echo
+    exit 0
+}
+
+function check_for_tool {
+    # Ensure that a given tool / command can be found.
+    cmd=`which $1`
+    if [[ $? -eq 0 ]]; then
+        echo $cmd
+    else
+        echo 'Unable to find command: ' $1 >&2
+        return 1
+    fi
+}
+
+set -e
+ADOC=`check_for_tool asciidoctor`
+ADOC_PDF=`check_for_tool asciidoctor-pdf`
+CMD=${ADOC}
+set +e
+
+if [[ -d $ADOC_OUT_DIR ]]; then
+    OUT_DIR=$ADOC_OUT_DIR
+fi
+
+while getopts ":hpnqo:" opt; do
+    case $opt in
+        h)
+            usage
+            ;;
+        n)
+            OPEN=0
+            ;;
+        q)
+            QUIET=1
+            ;;
+        p)
+            CMD=${ADOC_PDF}
+            EXT='pdf'
+            ;;
+        o)
+            OUT_DIR=$OPTARG
+            ;;
+        \?)
+            echo "Option is not valid: -${OPTARG}"
+            echo
+            usage
+            ;;
+    esac
+done
+shift $((OPTIND -1))
+
+bn=`basename $1`
+fname=`strip_extension $bn`
+FOUT=${OUT_DIR}/${fname}.${EXT}
+
+$CMD -o ${FOUT} $1
+
+if [[ $QUIET -eq 0 ]]; then
+    echo "File: ${FOUT}"
+fi
+
+if [[ $OPEN -eq 1 ]]; then
+    open ${FOUT}
+else
+    if [[ $QUIET -eq 0 ]]; then
+        echo 'Not opening file.'
+    fi
+fi

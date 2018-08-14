@@ -1,0 +1,314 @@
+#!/usr/bin/env python3
+
+import argparse
+import os
+import sys
+
+
+new_file = """= Utility: Term: Path: word
+
+The description of the word.
+
+== Files
+
+=== a file or directory
+
+file or directory description
+
+== Options
+
+=== -x foo
+
+This option is just an example.
+
+== General
+
+=== Some brief statement.
+
+A description to be remembered.
+
+== Examples
+
+.Brief Description of command.
+[source, console]
+----
+----
+
+== Sources
+
+* First item in list of locations.
+"""
+
+example_file_header = """= Examples
+:toc:
+:doctype: book
+:reproducible:
+:source-highlighter: pygments
+:pygments-style: friendly
+:pygments-linenums-mode: inline
+
+"""
+
+parser = argparse.ArgumentParser(description='Flash Card Builder')
+new_grp = parser.add_argument_group('new file')
+new_grp.add_argument('-n', '--new', action="store",
+                     help='Create new asciidoc file.')
+read_grp = parser.add_argument_group('read file(s)')
+read_grp.add_argument('-i', '--infile', action="store", default=False,
+                      help='Read the specified file or directory.')
+read_grp.add_argument('-oe', '--output-examples',
+                      type=argparse.FileType('w', encoding='UTF-8'),
+                      help='Create a file for examples.')
+
+read_grp.add_argument('-of', '--output-flashcards',
+                      type=argparse.FileType('w', encoding='UTF-8'),
+                      help='Create a file for flashcards.')
+
+ns = parser.parse_args()
+
+class CardFile:
+    valid_types = [
+            'utility',
+            'term',
+            'path',
+        ]
+    sections = [
+            'heading',
+            'description',
+            'files',
+            'general',
+            'options',
+            'sources',
+            'examples',
+        ]
+
+    def __init__(self, f):
+        self.card_type = None
+        self.title = None
+        self.description = None
+
+        self.section = None
+
+        self.files = []
+        self.options = []
+        self.general = []
+        self.examples = ''
+
+        self.fc_header = '\n' + '#' * 20 + '\n\n'
+        self.fc_seperator = '\n' + '-' * 20 + '\n\n'
+
+        self.proc_file(f)
+
+    def change_section(self, section):
+        if section in self.sections:
+            self.section = section
+        else:
+            print('ERROR: Bad Section: ', section)
+            self.section = section
+
+        if self.section == 'heading':
+            self.title = ''
+            self.description = ''
+
+        if self.section == 'examples':
+            self.examples = '== ' + self.title + '\n'
+
+    def add_key(self, header):
+        if self.section == 'options':
+            self.options.append([header, ''])
+
+        if self.section == 'files':
+            self.files.append([header, ''])
+
+        if self.section == 'general':
+            self.general.append([header, ''])
+
+    def add_text(self, text):
+        blank_line = False
+        if text == '\n':
+            blank_line = True
+            text = ''
+
+        if self.section == 'heading':
+            self.description = self.description + text
+
+        if text.endswith('\n') and self.section is not 'examples':
+            text = text.rstrip() + ' '
+
+        if self.section == 'options':
+            if len(self.options) > 0:
+                self.options[-1][1] = self.options[-1][1] + text
+
+        elif self.section == 'files':
+            if len(self.files) > 0:
+                self.files[-1][1] = self.files[-1][1] + text
+
+        elif self.section == 'general':
+            if len(self.general) > 0:
+                self.general[-1][1] = self.general[-1][1] + text
+
+        elif self.section == 'examples':
+            if blank_line:
+                text = '\n'
+
+            self.examples = self.examples + text.rstrip(' ') + '\n'
+
+    def proc_file(self, f):
+        for l in open(f):
+            if l.startswith('= '):
+                l = l.split()
+                if not len(l) == 3:
+                    print('Need to choose a type in the header!')
+                    sys.exit()
+
+                pre, card_type, title = l[:]
+                card_type = card_type.lower().strip(':')
+                if card_type in self.valid_types:
+                    self.change_section('heading')
+                    self.card_type = card_type.strip()
+                    self.title = title.strip()
+                else:
+                    print('Unknown type: ', card_type)
+                    sys.exit()
+
+            elif l.startswith('== '):
+                pre, header = l.split()
+                header = header.strip().lower()
+                self.change_section(header)
+            elif l.startswith('=== '):
+                header = ' '.join(l.split()[1:])
+                self.add_key(header)
+            else:
+                self.add_text(l)
+
+
+    def print_summary(self):
+        print()
+        print('*' * 10, 'Summary', '*' * 10)
+        print('type: ', self.card_type)
+        print('title: ', self.title)
+        print('description: \n\t', len(self.description), self.description)
+
+        if len(self.options) > 0:
+            print('\n', ' ' * 5, '*' * 5, 'Options', '*' * 5)
+            for opt in self.options:
+                print('opt:', opt[0]) 
+                print('\t', len(opt[1]), opt[1]) 
+
+        if len(self.files) > 0:
+            print('\n', ' ' * 5, '*' * 5, 'Files', '*' * 5)
+            for f in self.files:
+                print('file:', f[0]) 
+                print('\t', len(f[1]), f[1]) 
+
+    def write_cards(self, fc_file):
+
+        # print(self.description, len(self.description))
+        ## Description Card
+        if len(self.description) > 0:
+            fc_file.write(self.fc_header)
+            fc_file.write('Describe the ' + self.card_type + ': '
+                          + self.title + '\n')
+            fc_file.write(self.fc_seperator)
+            fc_file.write(self.card_type.title() + ' description: ' +
+                          self.description + '\n')
+
+        ## Option Cards
+        for card in self.options:
+            fc_file.write(self.fc_header)
+            fc_file.write(self.title + ' ' + card[0] + '\n')
+            fc_file.write(self.fc_seperator)
+            fc_file.write('Option for ' + self.title + ': ' + card[1] + '\n')
+
+        ## File Cards
+        for card in self.files:
+            fc_file.write(self.fc_header)
+            fc_file.write(self.title + ': ' + card[0])
+            fc_file.write(self.fc_seperator)
+            fc_file.write(card[1] + '\n')
+
+        ## General Cards
+        for card in self.general:
+            fc_file.write(self.fc_header)
+            fc_file.write(self.title + ': ' + card[0] + '\n')
+            fc_file.write(self.fc_seperator)
+            fc_file.write(card[1])
+
+        fc_file.write('\n')
+
+def get_dir_name(infile):
+    if infile == '.':
+        dname = os.path.realpath('.')
+        dname = os.path.basename(dname)
+        print('Directory: ', dname)
+    elif os.path.basename(infile) == infile:
+        dname = os.path.realpath(infile)
+        dname = os.path.basename(dname)
+        print('Directory: ', dname)
+    else:
+        dname = os.path.dirname(infile)
+        dname = os.path.basename(dname)
+        print('Directory: ', dname)
+
+    return dname
+
+if ns.infile:
+    files = []
+    if os.path.isfile(ns.infile):
+        files.append(ns.infile)
+    else:
+        for f in os.listdir(ns.infile):
+            if f.endswith('.adoc'):
+                files.append(f)
+        files.sort()
+
+    if ns.output_examples:
+        # Create file with header if option specified.
+        for l in example_file_header:
+            ns.output_examples.write(l)
+
+    dname = get_dir_name(ns.infile)
+    for f in files:
+        fname = os.path.join(dname, f)
+        print('Directory: ', dname.ljust(10), 'File: ', f.ljust(15), end='')
+        c = CardFile(fname)
+        if ns.output_examples:
+            cnt = 0
+            for l in c.examples.split('\n'):
+                if l.startswith('----'):
+                    cnt += 1
+            ns.output_examples.write(c.examples)
+            if c.card_type == 'utility':
+                print(str(int(cnt / 2)).rjust(3), 'examples', end='')
+            else:
+                print('---'.rjust(3), 'examples', end='')
+                
+
+        if ns.output_flashcards:
+            c.write_cards(ns.output_flashcards)
+            dsc = 0
+            if len(c.description) > 0:
+                dsc = 1
+            total_cards = len(c.options) + len(c.files) + len(c.general) + dsc
+            print(str(total_cards).rjust(3),
+                  'cards', end='')
+
+        print()
+
+        # c.print_summary()
+        # c.print_cards()
+        # print('\n', c.examples, '\n')
+
+elif ns.new:
+    fname = ns.new + '.adoc'
+    # print(fname, 'exits: ', os.path.isfile(fname))
+    if not os.path.isfile(fname):
+        print('Creating: ', fname)
+        with open(fname, 'w') as f:
+            for l in new_file:
+                f.write(l)
+    else:
+        print('File already exists: ', fname)
+
+else:
+    parser.print_help()
