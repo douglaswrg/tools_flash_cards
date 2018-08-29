@@ -91,6 +91,11 @@ if [[ -n $1 && $1 == '-h' ]]; then
     usage
 fi
 
+VERBOSE=''
+if [[ -n $1 && $1 == '-v' ]]; then
+    VERBOSE='-v'
+fi
+
 set -e
 FCARD=`check_for_tool fcards`
 ADOC=`check_for_tool adoc`
@@ -100,14 +105,15 @@ collect_directories
 
 for d in ${DIRS}
 do
-    echo $d
+    # echo $d
     x=`echo $d | sed -e 's/\//_/'`
     ex_file="examples_${x}"
 
     # The fcards tool is used to read the directory, and create the following:
     #  - collection of examples from all files.
     #  - collection of flash cards from all files.
-    ${FCARD} -i $d -oe ${F_OUT_DIR}/${ex_file}.adoc -of ${F_OUT_DIR}/cards_${x}
+    ${FCARD} ${VERBOSE} -i $d -oe ${F_OUT_DIR}/${ex_file}.adoc \
+                              -of ${F_OUT_DIR}/cards_${x}
 
     # Collect a count of the number of 2nd level headers to see if we need to
     # creating an HTML file makes sense.
