@@ -52,6 +52,8 @@ example_file_header = """= Examples
 parser = argparse.ArgumentParser(description='Flash Card Builder')
 parser.add_argument('-v', '--verbose', action="store_true",
                     help='Print information for each file in the directory.')
+parser.add_argument('-sd', '--show-delimiter', action="store_true",
+                    help='Show delimiters for flash card file.')
 new_grp = parser.add_argument_group('new file')
 new_grp.add_argument('-n', '--new', action="store",
                      help='Create new asciidoc file.')
@@ -84,6 +86,9 @@ class CardFile:
             'examples',
         ]
 
+    fc_header = '\n' + '#' * 20 + '\n\n'
+    fc_seperator = '\n' + '-' * 20 + '\n\n'
+
     def __init__(self, f):
         self.card_type = None
         self.title = None
@@ -96,9 +101,6 @@ class CardFile:
         self.general = []
         self.examples = ''
         self.counts = {'examples': 0, 'cards': 0}
-
-        self.fc_header = '\n' + '#' * 20 + '\n\n'
-        self.fc_seperator = '\n' + '-' * 20 + '\n\n'
 
         self.proc_file(f)
 
@@ -333,6 +335,12 @@ elif ns.new:
                 f.write(l)
     else:
         print('File already exists: ', fname)
+
+elif ns.show_delimiter:
+    print('Delimiter between cards:', end='')
+    print(CardFile.fc_header, end='')
+    print('Delimiter between term and definition:', end='')
+    print(CardFile.fc_seperator, end='')
 
 else:
     parser.print_help()

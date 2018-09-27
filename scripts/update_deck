@@ -94,8 +94,16 @@ fi
 VERBOSE=''
 if [[ -n $1 && $1 == '-v' ]]; then
     VERBOSE='-v'
+    shift 1
 fi
 
+SHOW_DELIMITER=''
+if [[ -n $1 && $1 == '-sd' ]]; then
+    SHOW_DELIMITER='-sd'
+    shift 1
+fi
+
+# Ensure that we immediately exit if one of the tools is not found.
 set -e
 FCARD=`check_for_tool fcards`
 ADOC=`check_for_tool adoc`
@@ -175,3 +183,7 @@ if [[ -f $OBJ_FILE ]]; then
     ${COBJ}
 fi
 
+# If asked, show the delimiters to assist with a bulk import.
+if [[ ${#SHOW_DELIMITER} -gt 0 ]]; then
+    fcards -sd
+fi
