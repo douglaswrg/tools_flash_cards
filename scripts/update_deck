@@ -99,6 +99,7 @@ fi
 set -e
 FCARD=`check_for_tool fcards`
 ADOC=`check_for_tool adoc`
+COBJ=`check_for_tool check_objectives`
 set +e
 
 collect_directories
@@ -170,5 +171,7 @@ if [[ -f $OBJ_FILE ]]; then
         echo 'Updating objectives.'
         ${ADOC} -n -q -o ${A_OUT_DIR} ${OBJ_FILE}
     fi
+
+    ${COBJ}
 fi
 

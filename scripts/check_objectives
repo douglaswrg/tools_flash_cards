@@ -1,0 +1,17 @@
+#!/bin/bash
+
+FILE='objectives.adoc'
+
+if [[ ! -f $FILE ]]; then
+    echo 'No objectives file found.'
+    exit
+fi
+
+TOTAL=`cat $FILE | grep '^[*]' | wc -l`
+COMPLETED=`cat $FILE | grep '^[*]' | grep '^[*]' | grep '\[x\]' | wc -l`
+
+echo -e '\n--------------------'
+echo "Total: $TOTAL   Completed: $COMPLETED"
+PERC=`echo "scale=2; ($COMPLETED / $TOTAL) * 100" | bc`
+echo "${PERC}% complete." | sed -e 's/\.00//'
+echo -e '\n--------------------\n'
