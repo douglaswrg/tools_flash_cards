@@ -20,8 +20,13 @@ function usage {
     echo -e '\tADOC_OUT_DIR is used to determine the base output directory of'
     echo -e '\tthe HTML files.\n'
 
+    echo 'The following variables can be set to the section names (delimited by'
+    echo -e 'spaces) for them to be appled to.\n'
+    echo -e '\tFC_SKIP is used to skip the section.'
+    echo -e '\tFC_BOTH is used to create two cards for each card.\n'
+
     output_locations
-    echo
+    section_flags
     exit 0
 }
 
@@ -33,6 +38,27 @@ function output_locations {
     echo ${A_OUT_DIR}
     echo -en "\tExample files written to:  "
     echo -n ${ADOC_OUT_DIR}
+    echo -e '\n'
+}
+
+function section_flags {
+    echo 'Variables found for section flags:'
+    cnt=0
+    if [[ -n $FC_SKIP ]]; then
+        echo -e '\tFC_SKIP: ' $FC_SKIP
+        cnt=$((cnt + 1))
+    fi
+
+    if [[ -n $FC_BOTH ]]; then
+        echo -e '\tFC_BOTH: ' $FC_BOTH
+        cnt=$((cnt + 1))
+    fi
+
+    if [[ $cnt -eq 0 ]]; then
+        echo -e '\tNone\n'
+    else
+        echo
+    fi
 }
 
 function check_for_tool {

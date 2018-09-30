@@ -99,7 +99,8 @@ class CardFile:
         # Template for card types.
         cards_template = {
             'cards': [],
-            'count_adj': 0
+            'flags': [],
+            'count_adj': 0,
         }
 
         # Storage for cards.
@@ -139,26 +140,61 @@ class CardFile:
                 self.counts['cards'] += len(self.cards[sec]['cards']) + adj
 
     def proc_flags(self):
+        # Look for environment variables for global flags.
+        for var in ('FC_SKIP', 'FC_BOTH'):
+            sections = os.getenv(var)
+            if sections:
+                # print('OS Var', var, ':',  sections)
+                for section in sections.split():
+                    # print('\tvars', var, section)
+                    if section in self.cards:
+                        self.cards[section]['flags'].append(var.lower())
+                    # else:
+                    #     print('Ignoring', section, 'in', var, end='.')
+
         # Find flags and append them to the card (list).
         for section in self.cards:
             # print('section: ', section)
             # pprint(self.cards[section]['cards'])
-            for card in self.cards[section]['cards']:
-                if card[1].startswith(':fc_'):
-                    # print('before: ', card)
-                    flag = card[1].split(' ')[0].strip(':')
-                    # print('\tFound flag:', flag)
-                    card[1] = ' '.join(card[1].split(' ')[1:])
-                    card.append(flag)
 
-                    # Update count adjustments based on flags that would affect
-                    # them.
-                    if flag == FLAG_SKIP:
+            for card in self.cards[section]['cards']:
+                flags = False
+                # print('before: ', card)
+
+                # Strip flags from the beginning of the description and append
+                # it to the card's list.
+                for w in card[1].split():
+                    if w.startswith(':fc_'):
+                        flag = card[1].split(' ')[0].strip(':')
+                        # print('\tFound flag:', flag)
+                        card[1] = ' '.join(card[1].split(' ')[1:])
+                        card.append(flag)
+                        flags = True
+                    else:
+                        # print('\tnot a flag: ', w)
+                        break
+
+                # Consider section level flags, and apply if they are not there.
+                sect_flags = self.cards[section]['flags']
+                if len(sect_flags) > 0:
+                    # print('Found section flag: ', sect_flags)
+                    for flag in sect_flags:
+                        if flag not in card[2:]:
+                            # print('\tAdding section flag', flag, 'to card.')
+                            card.append(flag)
+                            flags = True
+
+                # Update count adjustments based on flags that would affect
+                # them.
+                if flags:
+                    if FLAG_SKIP in card[2:]:
                         self.cards[section]['count_adj'] -= 1
 
-                    if flag == FLAG_BOTH:
+                    if FLAG_BOTH in card[2:]:
                         self.cards[section]['count_adj'] += 1
-                    # print('after: ', card)
+
+                # print('after: ', card)
+                # print()
 
     def change_section(self, section):
         if section in self.sections:
@@ -185,7 +221,15 @@ class CardFile:
 
         if self.section in my_sects and not blank_line:
             cards = self.cards[self.section]['cards']
-            cards[-1][1] = cards[-1][1] + text
+            if len(cards) > 0:
+                cards[-1][1] = cards[-1][1] + text
+            else:
+                if text.startswith(':fc_'):
+                    print('_' + text + '_')
+                    flag = text.strip(': ')
+                    print(self.section, 'flag: ', flag)
+
+                    self.cards[self.section]['flags'].append(flag)
 
         if self.section == 'examples':
             if blank_line:
