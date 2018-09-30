@@ -206,10 +206,10 @@ class CardFile:
 
                 pre, card_type, title = l[:]
                 # card_type = card_type.lower().strip(':')
-                heading['type'] = card_type.lower().strip(':')
-                if heading['type'] in self.valid_types:
+                card_type = card_type.lower().strip(':')
+                if card_type in self.valid_types:
                     self.change_section('heading')
-                    heading['type'] = card_type.strip()
+                    heading['type'] = card_type
                     heading['cards'].append([title.strip(), ''])
                 else:
                     print('Unknown type: ', card_type)
