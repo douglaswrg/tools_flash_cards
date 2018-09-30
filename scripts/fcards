@@ -3,7 +3,11 @@
 import argparse
 import os
 import sys
+from copy import deepcopy
 
+# Flags for cards.
+FLAG_SKIP = 'fc_skip'
+FLAG_BOTH = 'fc_both'
 
 new_file = """= Utility: Term: Path: word
 
@@ -78,7 +82,6 @@ class CardFile:
         ]
     sections = [
             'heading',
-            'description',
             'files',
             'general',
             'options',
@@ -90,19 +93,37 @@ class CardFile:
     fc_seperator = '\n' + '-' * 20 + '\n\n'
 
     def __init__(self, f):
-        self.card_type = None
-        self.title = None
-        self.description = None
-
+        # Purely for state tracking.
         self.section = None
 
-        self.files = []
-        self.options = []
-        self.general = []
+        # Template for card types.
+        cards_template = {
+            'cards': [],
+            'count_adj': 0
+        }
+
+        # Storage for cards.
+        self.cards = {
+            'heading': deepcopy(cards_template),
+            'files': deepcopy(cards_template),
+            'options': deepcopy(cards_template),
+            'general': deepcopy(cards_template),
+        }
+        # Heading cards will have a type.
+        self.cards['heading']['type'] = None
+
+        # Examples are stored here.
         self.examples = ''
+
+        # Initialize counts.
         self.counts = {'examples': 0, 'cards': 0}
 
         self.proc_file(f)
+        # print('\n', '*' * 20)
+        self.proc_flags()
+        # print('\t', '-' * 20)
+        # pprint(self.cards)
+        # print('\n', '*' * 20, '\n')
 
         if ns.output_examples:
             cnt = 0
@@ -113,12 +134,31 @@ class CardFile:
 
         if ns.output_flashcards:
             dsc = 0
-            if len(self.description) > 0:
-                dsc = 1
-            self.counts['cards'] += dsc
-            self.counts['cards'] += len(self.general)
-            self.counts['cards'] += len(self.files)
-            self.counts['cards'] += len(self.options)
+            for sec in self.cards:
+                adj = self.cards[sec]['count_adj']
+                self.counts['cards'] += len(self.cards[sec]['cards']) + adj
+
+    def proc_flags(self):
+        # Find flags and append them to the card (list).
+        for section in self.cards:
+            # print('section: ', section)
+            # pprint(self.cards[section]['cards'])
+            for card in self.cards[section]['cards']:
+                if card[1].startswith(':fc_'):
+                    # print('before: ', card)
+                    flag = card[1].split(' ')[0].strip(':')
+                    # print('\tFound flag:', flag)
+                    card[1] = ' '.join(card[1].split(' ')[1:])
+                    card.append(flag)
+
+                    # Update count adjustments based on flags that would affect
+                    # them.
+                    if flag == FLAG_SKIP:
+                        self.cards[section]['count_adj'] -= 1
+
+                    if flag == FLAG_BOTH:
+                        self.cards[section]['count_adj'] += 1
+                    # print('after: ', card)
 
     def change_section(self, section):
         if section in self.sections:
@@ -127,67 +167,50 @@ class CardFile:
             print('ERROR: Bad Section: ', section)
             self.section = section
 
-        if self.section == 'heading':
-            self.title = ''
-            self.description = ''
-
         if self.section == 'examples':
-            self.examples = '== ' + self.title + '\n'
+            self.examples = '== ' + self.cards['heading']['cards'][0][0] + '\n'
 
     def add_key(self, header):
-        if self.section == 'options':
-            self.options.append([header, ''])
-
-        if self.section == 'files':
-            self.files.append([header, ''])
-
-        if self.section == 'general':
-            self.general.append([header, ''])
+        self.cards[self.section]['cards'].append([header, ''])
 
     def add_text(self, text):
+        my_sects = ['options', 'files', 'general', 'heading']
         blank_line = False
         if text == '\n':
             blank_line = True
             text = ''
 
-        if self.section == 'heading':
-            self.description = self.description + text
-
         if text.endswith('\n') and self.section is not 'examples':
             text = text.rstrip() + ' '
 
-        if self.section == 'options':
-            if len(self.options) > 0:
-                self.options[-1][1] = self.options[-1][1] + text
+        if self.section in my_sects and not blank_line:
+            cards = self.cards[self.section]['cards']
+            cards[-1][1] = cards[-1][1] + text
 
-        elif self.section == 'files':
-            if len(self.files) > 0:
-                self.files[-1][1] = self.files[-1][1] + text
-
-        elif self.section == 'general':
-            if len(self.general) > 0:
-                self.general[-1][1] = self.general[-1][1] + text
-
-        elif self.section == 'examples':
+        if self.section == 'examples':
             if blank_line:
                 text = '\n'
 
             self.examples = self.examples + text.rstrip(' ') + '\n'
 
     def proc_file(self, f):
+        # print()
         for l in open(f):
+            # print('_' + l.strip() + '_')
             if l.startswith('= '):
+                heading = self.cards['heading']
                 l = l.split()
                 if not len(l) == 3:
                     print('Need to choose a type in the header!')
                     sys.exit()
 
                 pre, card_type, title = l[:]
-                card_type = card_type.lower().strip(':')
-                if card_type in self.valid_types:
+                # card_type = card_type.lower().strip(':')
+                heading['type'] = card_type.lower().strip(':')
+                if heading['type'] in self.valid_types:
                     self.change_section('heading')
-                    self.card_type = card_type.strip()
-                    self.title = title.strip()
+                    heading['type'] = card_type.strip()
+                    heading['cards'].append([title.strip(), ''])
                 else:
                     print('Unknown type: ', card_type)
                     sys.exit()
@@ -203,57 +226,91 @@ class CardFile:
                 self.add_text(l)
 
 
-    def print_summary(self):
-        print()
-        print('*' * 10, 'Summary', '*' * 10)
-        print('type: ', self.card_type)
-        print('title: ', self.title)
-        print('description: \n\t', len(self.description), self.description)
+    def skip_card(self, card):
+        if len(card) == 2:
+            return False
 
-        if len(self.options) > 0:
-            print('\n', ' ' * 5, '*' * 5, 'Options', '*' * 5)
-            for opt in self.options:
-                print('opt:', opt[0]) 
-                print('\t', len(opt[1]), opt[1]) 
+        if len(card) > 2:
+            for e in card[2:]:
+                if e == FLAG_SKIP:
+                    return True
 
-        if len(self.files) > 0:
-            print('\n', ' ' * 5, '*' * 5, 'Files', '*' * 5)
-            for f in self.files:
-                print('file:', f[0]) 
-                print('\t', len(f[1]), f[1]) 
+        return False
+
+    def both_cards(self, card):
+        if len(card) == 2:
+            return False
+
+        if len(card) > 2:
+            for e in card[2:]:
+                if e == FLAG_BOTH:
+                    return True
+
+        return False
 
     def write_cards(self, fc_file):
-
-        # print(self.description, len(self.description))
-        ## Description Card
-        if len(self.description) > 0:
+        ## Header Card
+        section = self.cards['heading']
+        title = section['cards'][0][0]
+        if len(section['cards']) > 0 and not self.skip_card(section['cards'][0]):
             fc_file.write(self.fc_header)
-            fc_file.write('Describe the ' + self.card_type + ': '
-                          + self.title + '\n')
+            fc_file.write('Describe the ' + section['type'] + ': '
+                          + section['cards'][0][0] + '\n')
             fc_file.write(self.fc_seperator)
-            fc_file.write(self.card_type.title() + ' description: ' +
-                          self.description + '\n')
+            fc_file.write(section['cards'][0][0] + ' description: ' +
+                          section['cards'][0][1] + '\n')
 
         ## Option Cards
-        for card in self.options:
+        section = self.cards['options']
+        for card in section['cards']:
+            if self.skip_card(card):
+                continue
+
             fc_file.write(self.fc_header)
-            fc_file.write(self.title + ' ' + card[0] + '\n')
+            fc_file.write(title + ' ' + card[0] + '\n')
             fc_file.write(self.fc_seperator)
-            fc_file.write('Option for ' + self.title + ': ' + card[1] + '\n')
+            fc_file.write('Option for ' + title + ': ' + card[1] + '\n')
+
+            if self.both_cards(card):
+                fc_file.write(self.fc_header)
+                fc_file.write('Option for ' + title + ': ' + card[1] + '\n')
+                fc_file.write(self.fc_seperator)
+                fc_file.write(title + ' ' + card[0] + '\n')
 
         ## File Cards
-        for card in self.files:
+        section = self.cards['files']
+        for card in section['cards']:
+            if self.skip_card(card):
+                continue
+
             fc_file.write(self.fc_header)
-            fc_file.write(self.title + ': ' + card[0])
+            fc_file.write(title + ': ' + card[0])
             fc_file.write(self.fc_seperator)
             fc_file.write(card[1] + '\n')
 
+            if self.both_cards(card):
+                fc_file.write(self.fc_header)
+                fc_file.write(card[1] + '\n')
+                fc_file.write(self.fc_seperator)
+                fc_file.write(title + ': ' + card[0])
+
+
         ## General Cards
-        for card in self.general:
+        section = self.cards['general']
+        for card in section['cards']:
+            if self.skip_card(card):
+                continue
+
             fc_file.write(self.fc_header)
-            fc_file.write(self.title + ': ' + card[0] + '\n')
+            fc_file.write(title + ': ' + card[0] + '\n')
             fc_file.write(self.fc_seperator)
             fc_file.write(card[1])
+
+            if self.both_cards(card):
+                fc_file.write(self.fc_header)
+                fc_file.write(card[1])
+                fc_file.write(self.fc_seperator)
+                fc_file.write(title + ': ' + card[0] + '\n')
 
         fc_file.write('\n')
 
@@ -321,13 +378,8 @@ if ns.infile:
         ns.output_examples.write(c.examples)
         c.write_cards(ns.output_flashcards)
 
-        # c.print_summary()
-        # c.print_cards()
-        # print('\n', c.examples, '\n')
-
 elif ns.new:
     fname = ns.new + '.adoc'
-    # print(fname, 'exits: ', os.path.isfile(fname))
     if not os.path.isfile(fname):
         print('Creating: ', fname)
         with open(fname, 'w') as f:
