@@ -8,6 +8,11 @@ from copy import deepcopy
 # Flags for cards.
 FLAG_SKIP = 'fc_skip'
 FLAG_BOTH = 'fc_both'
+FLAG_TMPL_VAR = 'fc_var'
+FLAG_TMPL_CMD = 'fc_cmd'
+FLAG_TMPL_SCMD = 'fc_scmd'
+FLAG_TMPL_RCMD = 'fc_rcmd'
+FLAG_TMPL_OPT = 'fc_opt'
 
 new_file = """= Utility: Term: Path: word
 
@@ -74,6 +79,98 @@ read_grp.add_argument('-of', '--output-flashcards',
 
 ns = parser.parse_args()
 
+class CardTemplate:
+    fc_header = '\n' + '#' * 20 + '\n\n'
+    fc_seperator = '\n' + '-' * 20 + '\n\n'
+    TMPL_DEFAULT_FRONT = 'FRONT\n'
+    TMPL_DEFAULT_BACK = 'BACK\n'
+
+    def __init__(self, card, title='', fc_type=''):
+        self.title = title
+        self.fc_type = fc_type
+        self.front = card[0]
+        self.back = card[1]
+        self.flags = []
+
+        if len(card) > 2:
+            self.flags = card[2:]
+
+    def skip_card(self):
+        if FLAG_SKIP in self.flags:
+            return True
+        else:
+            return False
+
+    def both_cards(self):
+        if FLAG_BOTH in self.flags:
+            return True
+        else:
+            return False
+
+    def get_card(self, template='default'):
+        if self.skip_card():
+            # Returning a zero-length string seems to have the effect that is
+            # desired.  write() does not add a newline to the file with this.
+            return ''
+
+        if hasattr(self, 'check_template_flag'):
+            opt_tmpl = self.check_template_flag()
+            if opt_tmpl:
+                template = opt_tmpl
+
+        front_tmpl = 'TMPL_' + template + '_FRONT'
+        back_tmpl = 'TMPL_' + template + '_BACK'
+        templates = [getattr(self, front_tmpl, self.TMPL_DEFAULT_FRONT),
+                     getattr(self, back_tmpl, self.TMPL_DEFAULT_BACK)]
+        # print(templates)
+
+        front = templates[0]
+        back = templates[1]
+
+        KW = ['TITLE', ]
+        for e in KW:
+            front = front.replace(e, getattr(self, e.lower()))
+            back = back.replace(e, getattr(self, e.lower()))
+
+        front = front.replace('FRONT', self.front)
+        back = back.replace('BACK', self.back)
+
+        card = self.fc_header + front + self.fc_seperator + back
+
+        if self.both_cards():
+            card = card + self.fc_header + back + self.fc_seperator + front
+
+        # print(card)
+        return card
+
+class GeneralTemplate(CardTemplate):
+    TMPL_DEFAULT_FRONT = 'TITLE: FRONT\n'
+    TMPL_DEFAULT_BACK = 'BACK\n'
+
+class FileTemplate(CardTemplate):
+    TMPL_DEFAULT_FRONT = 'TITLE: FRONT\n'
+    TMPL_DEFAULT_BACK = 'BACK\n'
+
+class OptionTemplate(CardTemplate):
+    TMPL_DEFAULT_FRONT = 'TITLE option: FRONT\n'
+    TMPL_DEFAULT_BACK = 'TITLE option that: BACK\n'
+    TMPL_CMD_FRONT = '$ TITLE FRONT\n'
+    TMPL_CMD_BACK = 'BACK\n'
+    TMPL_SUDO_CMD_FRONT = '$ sudo TITLE FRONT\n'
+    TMPL_SUDO_CMD_BACK = 'BACK\n'
+    TMPL_ROOT_CMD_FRONT = '# TITLE FRONT\n'
+    TMPL_ROOT_CMD_BACK = 'BACK\n'
+
+    def check_template_flag(self):
+        if FLAG_TMPL_CMD in self.flags:
+            return 'CMD'
+        elif FLAG_TMPL_SCMD in self.flags:
+            return 'SUDO_CMD'
+        elif FLAG_TMPL_RCMD in self.flags:
+            return 'ROOT_CMD'
+        else:
+            return False
+
 class CardFile:
     valid_types = [
             'utility',
@@ -88,9 +185,6 @@ class CardFile:
             'sources',
             'examples',
         ]
-
-    fc_header = '\n' + '#' * 20 + '\n\n'
-    fc_seperator = '\n' + '-' * 20 + '\n\n'
 
     def __init__(self, f):
         # Purely for state tracking.
@@ -112,6 +206,9 @@ class CardFile:
         }
         # Heading cards will have a type.
         self.cards['heading']['type'] = None
+
+        # Format for cards.
+        self.cards['heading']['formats'] = {}
 
         # Examples are stored here.
         self.examples = ''
@@ -269,92 +366,35 @@ class CardFile:
             else:
                 self.add_text(l)
 
-
-    def skip_card(self, card):
-        if len(card) == 2:
-            return False
-
-        if len(card) > 2:
-            for e in card[2:]:
-                if e == FLAG_SKIP:
-                    return True
-
-        return False
-
-    def both_cards(self, card):
-        if len(card) == 2:
-            return False
-
-        if len(card) > 2:
-            for e in card[2:]:
-                if e == FLAG_BOTH:
-                    return True
-
-        return False
-
     def write_cards(self, fc_file):
         ## Header Card
         section = self.cards['heading']
-        title = section['cards'][0][0]
-        if len(section['cards']) > 0 and not self.skip_card(section['cards'][0]):
-            fc_file.write(self.fc_header)
-            fc_file.write('Describe the ' + section['type'] + ': '
-                          + section['cards'][0][0] + '\n')
-            fc_file.write(self.fc_seperator)
-            fc_file.write(section['cards'][0][0] + ' description: ' +
-                          section['cards'][0][1] + '\n')
+        opts = {'title': section['cards'][0][0],
+                'fc_type': section['type'],
+                'card': section['cards'][0],
+                }
+        c = CardTemplate(**opts)
+        fc_file.write(c.get_card())
 
         ## Option Cards
         section = self.cards['options']
         for card in section['cards']:
-            if self.skip_card(card):
-                continue
-
-            fc_file.write(self.fc_header)
-            fc_file.write(title + ' ' + card[0] + '\n')
-            fc_file.write(self.fc_seperator)
-            fc_file.write('Option for ' + title + ': ' + card[1] + '\n')
-
-            if self.both_cards(card):
-                fc_file.write(self.fc_header)
-                fc_file.write('Option for ' + title + ': ' + card[1] + '\n')
-                fc_file.write(self.fc_seperator)
-                fc_file.write(title + ' ' + card[0] + '\n')
+            opts.update({'card': card})
+            c = OptionTemplate(**opts)
+            fc_file.write(c.get_card())
 
         ## File Cards
         section = self.cards['files']
         for card in section['cards']:
-            if self.skip_card(card):
-                continue
-
-            fc_file.write(self.fc_header)
-            fc_file.write(title + ': ' + card[0])
-            fc_file.write(self.fc_seperator)
-            fc_file.write(card[1] + '\n')
-
-            if self.both_cards(card):
-                fc_file.write(self.fc_header)
-                fc_file.write(card[1] + '\n')
-                fc_file.write(self.fc_seperator)
-                fc_file.write(title + ': ' + card[0])
-
-
+            opts.update({'card': card})
+            c = FileTemplate(**opts)
+            fc_file.write(c.get_card())
         ## General Cards
         section = self.cards['general']
         for card in section['cards']:
-            if self.skip_card(card):
-                continue
-
-            fc_file.write(self.fc_header)
-            fc_file.write(title + ': ' + card[0] + '\n')
-            fc_file.write(self.fc_seperator)
-            fc_file.write(card[1])
-
-            if self.both_cards(card):
-                fc_file.write(self.fc_header)
-                fc_file.write(card[1])
-                fc_file.write(self.fc_seperator)
-                fc_file.write(title + ': ' + card[0] + '\n')
+            opts.update({'card': card})
+            c = GeneralTemplate(**opts)
+            fc_file.write(c.get_card())
 
         fc_file.write('\n')
 
