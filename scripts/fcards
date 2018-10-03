@@ -115,6 +115,9 @@ class CardTemplate:
 
         if hasattr(self, 'check_template_flag'):
             opt_tmpl = self.check_template_flag()
+            if 'CMD' in str(opt_tmpl) and self.front == '--':
+                self.front = ''
+
             if opt_tmpl:
                 template = opt_tmpl
 
@@ -322,9 +325,9 @@ class CardFile:
                 cards[-1][1] = cards[-1][1] + text
             else:
                 if text.startswith(':fc_'):
-                    print('_' + text + '_')
+                    # print('_' + text + '_')
                     flag = text.strip(': ')
-                    print(self.section, 'flag: ', flag)
+                    # print(self.section, 'flag: ', flag)
 
                     self.cards[self.section]['flags'].append(flag)
 
