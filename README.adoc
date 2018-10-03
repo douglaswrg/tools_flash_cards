@@ -206,3 +206,188 @@ To get to the other side ...
 
 The examples section is used to list example usage for the commands.  These are
 not made in to flash cards, and can be as long as necassary.
+
+== Flags in a File
+
+Flags let us mark a card, or a section of cards to change something about how
+the cards are created.  Within a file, they are set similar to AsciiDoc
+attributes.
+
+=== fc_skip
+
+The fc_skip flag lets us skip the creation of a card, or all cards in a section.
+
+.Skip header (adoc file)
+[source, asciidoc]
+----
+= Utility: tree
+:fc_skip:
+----
+
+.Skip a specific card (adoc file)
+[source, asciidoc]
+----
+== Options
+
+=== -x foo
+:fc_skip:
+
+This option is just an example.
+
+=== -y bar
+
+Another option for the example.
+----
+
+.Only the second card is created here.
+[source, text]
+----
+####################
+
+tree -y bar
+
+ -------------------
+
+Option for tree: Another option for the example.
+----
+
+=== fc_both
+
+The fc_both flag creates the card twice, once for each direction.
+
+
+.Create both directions of the card (adoc file)
+[source, asciidoc]
+----
+== Options
+:fc_both:
+
+=== -x foo
+
+This option is just an example.
+
+----
+
+.Cards for these two options.
+[source, text]
+----
+####################
+
+tree -x foo
+
+ -------------------
+
+Option for tree: This option is just an example.
+
+####################
+
+Option for tree: This option is just an example.
+
+ -------------------
+
+tree -x foo
+
+----
+
+== Global Flags as Environment Variables.
+
+The fc_both and fc_skip flags can be globally assigned for sections in all
+files without having to be specified in each file.  Each has an environment
+variable that can list each section that it should be applied to.  For example,
+if the files and options sections should have the fc_both flag applied, the
+variable should look like this.
+
+.FC_BOTH variable.
+[source, shell]
+----
+$ echo $FC_BOTH
+files options
+----
+
+NOTE: The update_deck help will list these variables as they are seen.
+
+== Section Specific Template Flags
+
+With the simplistic templates that are used, there are section specific flags
+that will change how the cards are written.  Each example will include the
+header if the title or type is used in template.
+
+=== Option specific
+
+==== fc_cmd flag
+
+.List as a full command to be used in the shell.
+[source, asciidoc]
+----
+= Utility: tool
+
+== -x foo
+:fc_cmd:
+
+Some description of this command.
+----
+
+.Result of fc_cmd.
+[source, text]
+----
+####################
+
+$ tool -x foo
+
+ -------------------
+
+Some description of this command.
+
+----
+
+==== fc_scmd flag
+
+.List as a full command (with sudo) to be used in the shell.
+[source, asciidoc]
+----
+= Utility: tool
+
+== -x foo
+:fc_scmd:
+
+Some description of this command.
+----
+
+.Result of fc_cmd.
+[source, text]
+----
+####################
+
+$ sudo tool -x foo
+
+ -------------------
+
+Some description of this command.
+
+----
+
+==== fc_rcmd flag
+
+.List as a full command (at root prompt) to be used in the shell.
+[source, asciidoc]
+----
+= Utility: tool
+
+== -x foo
+:fc_rcmd:
+
+Some description of this command.
+----
+
+.Result of fc_rcmd.
+[source, text]
+----
+####################
+
+# tool -x foo
+
+ -------------------
+
+Some description of this command.
+
+----
