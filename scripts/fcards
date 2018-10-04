@@ -156,21 +156,26 @@ class FileTemplate(CardTemplate):
 
 class OptionTemplate(CardTemplate):
     TMPL_DEFAULT_FRONT = 'TITLE option: FRONT\n'
-    TMPL_DEFAULT_BACK = 'TITLE option that: BACK\n'
+    TMPL_DEFAULT_BACK = 'TITLE option: BACK\n'
     TMPL_CMD_FRONT = '$ TITLE FRONT\n'
-    TMPL_CMD_BACK = 'BACK\n'
+    TMPL_CMD_BACK = '(TITLE option) BACK\n'
     TMPL_SUDO_CMD_FRONT = '$ sudo TITLE FRONT\n'
-    TMPL_SUDO_CMD_BACK = 'BACK\n'
+    TMPL_SUDO_CMD_BACK = TMPL_CMD_BACK
     TMPL_ROOT_CMD_FRONT = '# TITLE FRONT\n'
-    TMPL_ROOT_CMD_BACK = 'BACK\n'
+    TMPL_ROOT_CMD_BACK = TMPL_CMD_BACK
 
     def check_template_flag(self):
-        if FLAG_TMPL_CMD in self.flags:
-            return 'CMD'
-        elif FLAG_TMPL_SCMD in self.flags:
-            return 'SUDO_CMD'
-        elif FLAG_TMPL_RCMD in self.flags:
-            return 'ROOT_CMD'
+        # Return the text related to the first flag found.
+        tmpl_flags = []
+        my_flags = (FLAG_TMPL_CMD, FLAG_TMPL_SCMD, FLAG_TMPL_RCMD)
+        my_text = ('CMD', 'SUDO_CMD', 'ROOT_CMD')
+        for flag in self.flags:
+            if flag in my_flags:
+                tmpl_flags.append(my_text[my_flags.index(flag)])
+
+        if len(tmpl_flags) > 0:
+            print(self.flags, tmpl_flags)
+            return tmpl_flags[-1]
         else:
             return False
 
@@ -240,6 +245,11 @@ class CardFile:
                 self.counts['cards'] += len(self.cards[sec]['cards']) + adj
 
     def proc_flags(self):
+        # Apply flags in the specific order:
+        # - environment variables
+        # - section specific
+        # - card specific
+
         # Look for environment variables for global flags.
         for var in ('FC_SKIP', 'FC_BOTH'):
             sections = os.getenv(var)
@@ -248,7 +258,7 @@ class CardFile:
                 for section in sections.split():
                     # print('\tvars', var, section)
                     if section in self.cards:
-                        self.cards[section]['flags'].append(var.lower())
+                        self.cards[section]['flags'].insert(0, var.lower())
                     # else:
                     #     print('Ignoring', section, 'in', var, end='.')
 
@@ -260,6 +270,16 @@ class CardFile:
             for card in self.cards[section]['cards']:
                 flags = False
                 # print('before: ', card)
+
+                # Consider section level flags, and apply if they are not there.
+                sect_flags = self.cards[section]['flags']
+                if len(sect_flags) > 0:
+                    # print('Found section flag: ', sect_flags)
+                    for flag in sect_flags:
+                        if flag not in card[2:]:
+                            # print('\tAdding section flag', flag, 'to card.')
+                            card.append(flag)
+                            flags = True
 
                 # Strip flags from the beginning of the description and append
                 # it to the card's list.
@@ -273,16 +293,6 @@ class CardFile:
                     else:
                         # print('\tnot a flag: ', w)
                         break
-
-                # Consider section level flags, and apply if they are not there.
-                sect_flags = self.cards[section]['flags']
-                if len(sect_flags) > 0:
-                    # print('Found section flag: ', sect_flags)
-                    for flag in sect_flags:
-                        if flag not in card[2:]:
-                            # print('\tAdding section flag', flag, 'to card.')
-                            card.append(flag)
-                            flags = True
 
                 # Update count adjustments based on flags that would affect
                 # them.
