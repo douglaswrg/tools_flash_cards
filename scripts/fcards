@@ -82,8 +82,8 @@ ns = parser.parse_args()
 class CardTemplate:
     fc_header = '\n' + '#' * 20 + '\n\n'
     fc_seperator = '\n' + '-' * 20 + '\n\n'
-    TMPL_DEFAULT_FRONT = 'FRONT\n'
-    TMPL_DEFAULT_BACK = 'BACK\n'
+    TMPL_DEFAULT_FRONT = '(FC_TYPE) FRONT\n'
+    TMPL_DEFAULT_BACK = '(FC_TYPE) BACK\n'
 
     def __init__(self, card, title='', fc_type=''):
         self.title = title
@@ -130,7 +130,7 @@ class CardTemplate:
         front = templates[0]
         back = templates[1]
 
-        KW = ['TITLE', ]
+        KW = ['TITLE', 'FC_TYPE']
         for e in KW:
             front = front.replace(e, getattr(self, e.lower()))
             back = back.replace(e, getattr(self, e.lower()))
