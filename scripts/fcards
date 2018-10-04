@@ -148,7 +148,7 @@ class CardTemplate:
 
 class GeneralTemplate(CardTemplate):
     TMPL_DEFAULT_FRONT = 'TITLE: FRONT\n'
-    TMPL_DEFAULT_BACK = 'BACK\n'
+    TMPL_DEFAULT_BACK = '(TITLE) BACK\n'
 
 class FileTemplate(CardTemplate):
     TMPL_DEFAULT_FRONT = 'TITLE: FRONT\n'
