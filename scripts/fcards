@@ -174,7 +174,7 @@ class OptionTemplate(CardTemplate):
                 tmpl_flags.append(my_text[my_flags.index(flag)])
 
         if len(tmpl_flags) > 0:
-            print(self.flags, tmpl_flags)
+            # print(self.flags, tmpl_flags)
             return tmpl_flags[-1]
         else:
             return False
