@@ -487,9 +487,9 @@ elif ns.new:
 
 elif ns.show_delimiter:
     print('Delimiter between cards:', end='')
-    print(CardFile.fc_header, end='')
+    print(CardTemplate.fc_header, end='')
     print('Delimiter between term and definition:', end='')
-    print(CardFile.fc_seperator, end='')
+    print(CardTemplate.fc_seperator, end='')
 
 else:
     parser.print_help()
