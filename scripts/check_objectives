@@ -1,6 +1,8 @@
 #!/bin/bash
 
-FILE='objectives.adoc'
+## Allow a file to specified, but default to objectives.adoc.
+DEF_FILE='objectives.adoc'
+FILE=${1:-${DEF_FILE}}
 
 if [[ ! -f $FILE ]]; then
     echo 'No objectives file found.'
@@ -11,7 +13,15 @@ TOTAL=`cat $FILE | grep '^[*]' | wc -l`
 COMPLETED=`cat $FILE | grep '^[*]' | grep '^[*]' | grep '\[x\]' | wc -l`
 
 echo -e '\n--------------------'
+echo "File:  ${FILE}"
 echo "Total: $TOTAL   Completed: $COMPLETED"
 PERC=`echo "scale=2; ($COMPLETED / $TOTAL) * 100" | bc`
+
+# Introduce a space if it is a single digit.
+# This helps line up the output in the case that 'watch' is repeating.
+if [[ ${#PERC} -eq 1 ]]; then
+    PERC=" ${PERC}"
+fi
+
 echo "${PERC}% complete." | sed -e 's/\.00//'
-echo -e '\n--------------------\n'
+echo -e '--------------------\n'
