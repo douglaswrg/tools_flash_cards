@@ -12,6 +12,7 @@ FLAG_TMPL_VAR = 'fc_var'
 FLAG_TMPL_CMD = 'fc_cmd'
 FLAG_TMPL_SCMD = 'fc_scmd'
 FLAG_TMPL_RCMD = 'fc_rcmd'
+FLAG_TMPL_SQL = 'fc_sql'
 FLAG_TMPL_OPT = 'fc_opt'
 
 new_file = """= Utility: Term: Path: word
@@ -80,8 +81,10 @@ read_grp.add_argument('-of', '--output-flashcards',
 ns = parser.parse_args()
 
 class CardTemplate:
-    fc_header = '\n' + '#' * 20 + '\n\n'
-    fc_seperator = '\n' + '-' * 20 + '\n\n'
+    # fc_header = '\n' + '-' * 5 + '\n'
+    # fc_seperator = '\n' + '-' * 20 + '\n\n'
+    fc_seperator = '-' * 5 + '\n'
+    fc_header = '\n'
     TMPL_DEFAULT_FRONT = '(FC_TYPE) FRONT\n'
     TMPL_DEFAULT_BACK = '(FC_TYPE) BACK\n'
 
@@ -163,12 +166,14 @@ class OptionTemplate(CardTemplate):
     TMPL_SUDO_CMD_BACK = TMPL_CMD_BACK
     TMPL_ROOT_CMD_FRONT = '# TITLE FRONT\n'
     TMPL_ROOT_CMD_BACK = TMPL_CMD_BACK
+    TMPL_SQL_CMD_FRONT = '> FRONT\n'
+    TMPL_SQL_CMD_BACK = 'BACK\n'
 
     def check_template_flag(self):
         # Return the text related to the first flag found.
         tmpl_flags = []
-        my_flags = (FLAG_TMPL_CMD, FLAG_TMPL_SCMD, FLAG_TMPL_RCMD)
-        my_text = ('CMD', 'SUDO_CMD', 'ROOT_CMD')
+        my_flags = (FLAG_TMPL_CMD, FLAG_TMPL_SCMD, FLAG_TMPL_RCMD, FLAG_TMPL_SQL)
+        my_text = ('CMD', 'SUDO_CMD', 'ROOT_CMD', 'SQL_CMD')
         for flag in self.flags:
             if flag in my_flags:
                 tmpl_flags.append(my_text[my_flags.index(flag)])
@@ -409,7 +414,7 @@ class CardFile:
             c = GeneralTemplate(**opts)
             fc_file.write(c.get_card())
 
-        fc_file.write('\n')
+        # fc_file.write('\n')
 
 def get_dir_name(infile):
     if infile == '.':
