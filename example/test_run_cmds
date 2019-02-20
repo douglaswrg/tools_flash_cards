@@ -1,0 +1,8 @@
+ls -als
+date
+date --date='@2147483647'
+TZ='America/Los_Angeles' date
+date --date='TZ="America/Los_Angeles" 09:00 next Fri'
+
+# Make sure that pipes work.
+echo 'foobar' | grep 'foo' | sed -e 's/bar//'

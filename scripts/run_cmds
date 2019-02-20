@@ -1,0 +1,67 @@
+#!/bin/bash
+
+# Script to help capture what commands would look like on the command line.
+# Takes a file which has a list of commands to be run as an argument.
+
+CMD_PROMPT='$ '
+
+if [[ $1 == '-d' ]]; then
+    DEBUG='Y'
+    shift 1
+fi
+
+if [[ -f $1 ]]; then
+    INFILE=$1
+else
+    echo 'No file given to execute!'
+    exit 1
+fi
+
+# First, provide some seperation to allow for easier copy / paste operations.
+echo -e '\n\n'
+
+# Line number.
+ln=0
+
+# Read each line in to an array variable.
+while read -a LINE
+do
+    # Track the line number only if debugging.
+    if [[ $DEBUG == 'Y' ]]; then
+        ln=$((ln + 1))
+        echo -n 'Line number' $ln
+    fi
+
+    if [[ -n $LINE && ! ${LINE[0]} == '#' ]]; then
+        if [[ $DEBUG == 'Y' ]]; then
+            echo ' will be executed:'
+            echo ' --------- '
+            echo ${LINE[*]} | od -t c
+            echo ' --------- '
+        fi
+
+        # Show the command prompt.
+        # Must be quoted in case there is a trailing space.
+        echo -n "${CMD_PROMPT}"
+
+        # Show the command we are going to run.
+        echo ${LINE[*]}
+
+        # Send the command to bash to run.
+        echo ${LINE[*]} | bash
+
+        # Provide a space between the ouptput and the next command.
+        echo
+    else
+        if [[ $DEBUG == 'Y' ]]; then
+            echo ' skipped:'
+            echo ' --------- '
+            echo ${LINE[*]} | od -t c
+            echo ' --------- '
+            echo
+        fi
+    fi
+done < $INFILE
+
+# Last, provide a couple of blank lines to again provied some seperation.
+echo -e '\n\n'
