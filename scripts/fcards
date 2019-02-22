@@ -23,28 +23,32 @@ The description of the word.
 
 === a file or directory
 
-file or directory description
+TODO
 
 == Options
 
 === -x foo
 
-This option is just an example.
+TODO
 
 == General
 
 === Some brief statement.
 
-A description to be remembered.
+TODO
 
 == Examples
 
-.Brief Description of command.
+TODO
+
+.Basic usage.
 [source, console]
 ----
 ----
 
 == Sources
+
+TODO
 
 * First item in list of locations.
 """
