@@ -1,6 +1,28 @@
 #!/bin/bash
 
 ## Allow a file to specified, but default to objectives.adoc.
+
+
+function number_space {
+    # Take a number and pad with spaces until the string has 3 characters.
+    wanted_characters=3
+    original=$1
+    given=$1
+
+    diff=$((wanted_characters - ${#given}))
+    #echo "${#original} $diff $given"
+
+    while [[ $diff -gt 0 ]];
+    do
+        #echo ' diff=' $diff
+        given=" $given"
+        diff=$((diff - 1))
+    done
+
+    #echo "${#original} $diff $given"
+    echo "$given"
+}
+
 DEF_FILE='objectives.adoc'
 FILE=${1:-${DEF_FILE}}
 
@@ -9,19 +31,34 @@ if [[ ! -f $FILE ]]; then
     exit
 fi
 
-TOTAL=`cat $FILE | grep '^[*]' | wc -l`
-COMPLETED=`cat $FILE | grep '^[*]' | grep '^[*]' | grep '\[x\]' | wc -l`
+TOTAL=`cat $FILE | grep '^[*]' | wc -l | sed -e 's/^[\ ]*//g'`
+COMPLETED=`cat $FILE | grep '^[*]' | grep '^[*]' | grep '\[x\]' | wc -l | \
+    sed -e 's/^[\ ]*//g'`
+PERC=`echo "scale=2; ($COMPLETED / $TOTAL) * 100" | bc | sed -e 's/\.00//'`
+
+# Pad the numbers with spaces.
+TOTAL=$(number_space $TOTAL)
+COMPLETE=$(number_space $COMPLETE)
+PERC=$(number_space $PERC)
 
 echo -e '\n--------------------'
 echo "File:  ${FILE}"
 echo "Total: $TOTAL   Completed: $COMPLETED"
-PERC=`echo "scale=2; ($COMPLETED / $TOTAL) * 100" | bc`
+echo "${PERC}% complete."
 
-# Introduce a space if it is a single digit.
-# This helps line up the output in the case that 'watch' is repeating.
-if [[ ${#PERC} -eq 1 ]]; then
-    PERC=" ${PERC}"
+# Are there fc_complete attributes in the file?
+NUM_FC_CMP=`grep -c '^:fc_complete:' ${FILE}`
+if [[ $NUM_FC_CMP -gt 0 ]]; then
+    NUM_FC_COMPLETED=`grep -c '^:fc_complete: 1' ${FILE}`
+    FC_CMP_PERC=`echo "scale=2; ($NUM_FC_COMPLETED / $NUM_FC_CMP) * 100" | \
+                    bc | sed -e 's/\.00//'`
+
+    NUM_FC_CMP=$(number_space $NUM_FC_CMP)
+    NUM_FC_COMPLETED=$(number_space $NUM_FC_COMPLETED)
+    FC_CMP_PERC=$(number_space $FC_CMP_PERC)
+
+    echo "Total: $NUM_FC_CMP   Completed: $NUM_FC_COMPLETED"
+    echo "${FC_CMP_PERC}% complete sections."
 fi
 
-echo "${PERC}% complete." | sed -e 's/\.00//'
 echo -e '--------------------\n'
