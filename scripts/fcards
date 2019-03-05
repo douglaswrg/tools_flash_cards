@@ -354,6 +354,13 @@ class CardFile:
             if blank_line:
                 text = '\n'
 
+            # Asciidoc include statements need to be changed since the relative
+            # location is different in the temporary directory.
+            if text.startswith('include::'):
+                t = text.strip().split('::')
+                inc_file = t[1][3:-2]
+                text = 'include::./' + inc_file + '[]'
+
             self.examples = self.examples + text.rstrip(' ') + '\n'
 
     def proc_file(self, f):

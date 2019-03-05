@@ -138,6 +138,10 @@ set +e
 
 collect_directories
 
+if [[ -d './scripts' ]]; then
+    cp -r ./scripts ${F_OUT_DIR}/.
+fi
+
 for d in ${DIRS}
 do
     # echo $d
@@ -189,7 +193,9 @@ do
         if [[ ${A_OUT_DIR}/$hname -ot $f ]]; then
             # If the .adoc file is newer, create a new HTML file.
             echo ' - updating: ' $hname
+            echo "${ADOC} -n -q -o ${A_OUT_DIR}/$d $f"
             ${ADOC} -n -q -o ${A_OUT_DIR}/$d $f
+            echo "----"
         fi
     done
 done
