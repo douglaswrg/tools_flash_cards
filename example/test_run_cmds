@@ -6,3 +6,16 @@ date --date='TZ="America/Los_Angeles" 09:00 next Fri'
 
 # Make sure that pipes work.
 echo 'foobar' | grep 'foo' | sed -e 's/bar//'
+
+# Shell varables need to be captured and run in current shell.
+# A quirk in the way this works keeps you from using quotes in the value.
+export FOO=bar
+
+# The exported variable can be echoed by subshells.
+echo "FOO: $FOO"
+
+# Unsetting the variables need to be captured an run in current shell.
+unset FOO
+
+echo "FOO: $FOO"
+

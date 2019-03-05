@@ -47,8 +47,13 @@ do
         # Show the command we are going to run.
         echo ${LINE[*]}
 
-        # Send the command to bash to run.
-        echo ${LINE[*]} | bash
+        if [[ ${LINE[0]} == 'export' || ${LINE[0]} == 'unset' ]]; then
+            # Run in this shell.
+            ${LINE[*]}
+        else
+            # Send the command to bash to run.
+            echo ${LINE[*]} | bash
+        fi
 
         # Provide a space between the ouptput and the next command.
         echo
