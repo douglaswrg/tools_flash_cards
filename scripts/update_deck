@@ -139,6 +139,7 @@ set +e
 collect_directories
 
 if [[ -d './scripts' ]]; then
+    echo 'Copying scripts to: ' $F_OUT_DIR
     cp -r ./scripts ${F_OUT_DIR}/.
 fi
 
@@ -193,9 +194,7 @@ do
         if [[ ${A_OUT_DIR}/$hname -ot $f ]]; then
             # If the .adoc file is newer, create a new HTML file.
             echo ' - updating: ' $hname
-            echo "${ADOC} -n -q -o ${A_OUT_DIR}/$d $f"
             ${ADOC} -n -q -o ${A_OUT_DIR}/$d $f
-            echo "----"
         fi
     done
 done
