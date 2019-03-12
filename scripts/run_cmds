@@ -4,6 +4,8 @@
 # Takes a file which has a list of commands to be run as an argument.
 
 CMD_PROMPT='$ '
+TMP_DIR="/tmp/run_cmds/$$"
+mkdir -p ${TMP_DIR}
 
 if [[ $1 == '-d' ]]; then
     DEBUG='Y'
@@ -17,56 +19,91 @@ else
     exit 1
 fi
 
-# First, provide some seperation to allow for easier copy / paste operations.
-echo -e '\n\n'
+# Create an array of numbers that are padded with zeroes to help the file names
+# have a set alphanumeric sort order.
+NUM_LINES=$(cat $INFILE | wc -l)
+NUMS=($(seq -w $NUM_LINES))
 
-# Line number.
+if [[ $DEBUG == 'Y' ]]; then
+    echo ${#NUMS}
+    echo ${NUMS[*]}
+fi
+
+# Line number in the source file that is being read.
 ln=0
-
-# Read each line in to an array variable.
+# File number index being created.
+fn=0
+# Start the "first line" at 1.
+FIRST_LINE=1
 while read -a LINE
 do
-    # Track the line number only if debugging.
-    if [[ $DEBUG == 'Y' ]]; then
-        ln=$((ln + 1))
-        echo -n 'Line number' $ln
-    fi
+    # Increment the line number of the source file.
+    ln=$(( ln + 1 ))
 
-    if [[ -n $LINE && ! ${LINE[0]} == '#' ]]; then
+    if [[ ${LINE[0]} == '#' || -z ${LINE[0]} ]]; then
         if [[ $DEBUG == 'Y' ]]; then
-            echo ' will be executed:'
-            echo ' --------- '
-            echo ${LINE[*]} | od -t c
-            echo ' --------- '
+            echo ' --' $ln 'Comment or blank line.'
         fi
-
-        # Show the command prompt.
-        # Must be quoted in case there is a trailing space.
-        echo -n "${CMD_PROMPT}"
-
-        # Show the command we are going to run.
-        echo ${LINE[*]}
-
-        if [[ ${LINE[0]} == 'export' || ${LINE[0]} == 'unset' ]]; then
-            # Run in this shell.
-            ${LINE[*]}
-        else
-            # Send the command to bash to run.
-            echo ${LINE[*]} | bash
-        fi
-
-        # Provide a space between the ouptput and the next command.
-        echo
     else
+        # Setup the temporary file name.
+        fname="${TMP_DIR}/cmd_${NUMS[${fn}]}"
         if [[ $DEBUG == 'Y' ]]; then
-            echo ' skipped:'
-            echo ' --------- '
-            echo ${LINE[*]} | od -t c
-            echo ' --------- '
-            echo
+            echo ' --' $FIRST_LINE $ln 'Command to be run.'
+            echo ' --- ' $fname
         fi
+        # Grab the line numbers with sed and print them.
+        # Remove blank lines grep.
+        sed -n -e "${FIRST_LINE},${ln} p" $INFILE | grep -v '^$' > $fname
+
+        # Icrement the "first line" to the next line number.
+        FIRST_LINE=$((ln + 1))
+        # Increment the file number index since we just used the current one.
+        fn=$((fn + 1))
     fi
 done < $INFILE
 
+
+# First, provide some seperation to allow for easier copy / paste operations.
+echo -e '\n\n'
+
+# Loop through the temporary files that we have created.
+for cmd_file in $(ls -1 ${TMP_DIR}/cmd_*)
+do
+    # Capture the single command to be run.
+    LINE=$(grep -v '#' $cmd_file)
+
+    if [[ $DEBUG == 'Y' ]]; then
+        echo ' -- ' $(basename $cmd_file)
+    fi
+
+    # Show the command prompt.
+    # Must be quoted in case there is a trailing space.
+    echo -n "${CMD_PROMPT}"
+
+    # Show the command we are going to run.
+    echo $LINE
+
+    if [[ ! $DEBUG == 'Y' ]]; then
+        # Some commands have wierd output on stardard error when
+        # bash kills them due to a resource limit (ulimit).
+        source $cmd_file > ${cmd_file}_out 2>&1
+        wierdness=$(egrep $cmd_file ${cmd_file}_out)
+        if [[ -z $wierdness ]]; then
+            cat ${cmd_file}_out
+        else
+            echo 'wierd error from bash here.'
+            echo '----'
+            cat ${cmd_file}_out
+            echo '----'
+        fi
+    fi
+
+    # Provide a blank line between output.
+    echo
+done
+
 # Last, provide a couple of blank lines to again provied some seperation.
 echo -e '\n\n'
+
+# Remove the temporary files.
+rm -rf $TMP_DIR
