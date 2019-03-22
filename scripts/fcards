@@ -8,6 +8,7 @@ from copy import deepcopy
 # Flags for cards.
 FLAG_SKIP = 'fc_skip'
 FLAG_BOTH = 'fc_both'
+FLAG_SWAP = 'fc_swap'
 FLAG_TMPL_VAR = 'fc_var'
 FLAG_TMPL_CMD = 'fc_cmd'
 FLAG_TMPL_SCMD = 'fc_scmd'
@@ -149,6 +150,10 @@ class CardTemplate:
 
         if self.both_cards():
             card = card + self.fc_header + back + self.fc_seperator + front
+
+        if FLAG_SWAP in self.flags:
+            print('Found swap flag.', templates)
+            card = self.fc_header + back + self.fc_seperator + front
 
         # print(card)
         return card
