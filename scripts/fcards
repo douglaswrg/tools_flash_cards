@@ -152,7 +152,7 @@ class CardTemplate:
             card = card + self.fc_header + back + self.fc_seperator + front
 
         if FLAG_SWAP in self.flags:
-            print('Found swap flag.', templates)
+            # print('Found swap flag.', templates)
             card = self.fc_header + back + self.fc_seperator + front
 
         # print(card)
