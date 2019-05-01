@@ -19,91 +19,202 @@ else
     exit 1
 fi
 
+function decho {
+    if [[ $DEBUG == 'Y' ]]; then
+        echo $*
+    fi
+}
+
+function check_blanks {
+    OUT=$(sed -n "/^${1}$/=" ${FILE_BL})
+    if [[ -z $OUT ]]; then
+        return 0
+    else
+        return 1
+    fi
+}
+
+function check_comments {
+    OUT=$(sed -n "/^${1}$/=" ${FILE_CL})
+    if [[ -z $OUT ]]; then
+        return 0
+    else
+        return 1
+    fi
+}
+
+function check_spaced {
+    OUT=$(sed -n "/^${1}$/=" ${FILE_SL})
+    if [[ -z $OUT ]]; then
+        return 0
+    else
+        return 1
+    fi
+}
+
+function write_comments {
+    START=$1
+    STOP=$2
+    FN=$3
+    fname="${TMP_DIR}/cmts_${NUMS[${FN}]}"
+    decho ' --- write_comments: ' $START $STOP $FN $fname
+    sed -n -e "${START},${STOP} p" $INFILE > $fname
+    # echo
+}
+
+function write_commands {
+    START=$1
+    STOP=$2
+    FN=$3
+    fname="${TMP_DIR}/cmd_${NUMS[${FN}]}"
+    decho ' --- write_commands: ' $START $STOP $FN $fname
+    sed -n -e "${START},${STOP} p" $INFILE > $fname
+    # echo
+}
+
 # Create an array of numbers that are padded with zeroes to help the file names
 # have a set alphanumeric sort order.
 NUM_LINES=$(cat $INFILE | wc -l)
 NUMS=($(seq -w $NUM_LINES))
 
-if [[ $DEBUG == 'Y' ]]; then
-    echo ${#NUMS}
-    echo ${NUMS[*]}
-fi
+# Use awk to get blank lines and commented line numbers.
+FILE_BL="${TMP_DIR}/lines_blank"
+FILE_CL="${TMP_DIR}/lines_comment"
+FILE_SL="${TMP_DIR}/lines_spaced"
+awk '/^$/  {print FNR}' $INFILE > ${FILE_BL}
+awk '/^#/  {print FNR}' $INFILE > ${FILE_CL}
+awk '/^  / {print FNR}' $INFILE > ${FILE_SL}
 
-# Line number in the source file that is being read.
-ln=0
+SKIP_LINES=$(cat ${FILE_BL} ${FILE_CL} | sort -n)
+
+#if [[ $DEBUG == 'Y' ]]; then
+#    echo ' - Number of alphanum words:'
+#    echo ${#NUMS[*]}
+#    echo ' - alphanum words:'
+#    echo ${NUMS[*]}
+#    echo ' - Blank line numbers:'
+#    cat ${FILE_BL}
+#    echo ' - Comment line numbers:'
+#    cat ${FILE_CL}
+#    echo ' - Spaced line numbers:'
+#    cat ${FILE_SL}
+#    echo ' --- '
+#fi
+
+# Collection of lines that belong to a set of adjacent comments.
+COMMENT_GROUP_START=''
+COMMAND_GROUP_START=''
+
 # File number index being created.
 fn=0
-# Start the "first line" at 1.
-FIRST_LINE=1
-while read -a LINE
-do
-    # Increment the line number of the source file.
-    ln=$(( ln + 1 ))
 
-    if [[ ${LINE[0]} == '#' || -z ${LINE[0]} ]]; then
-        if [[ $DEBUG == 'Y' ]]; then
-            echo ' --' $ln 'Comment or blank line.'
+for ln in $(seq $NUM_LINES)
+do
+    BL=$(check_blanks $ln ; echo $?)
+    CL=$(check_comments $ln ; echo $?)
+    SL=$(check_spaced $ln ; echo $?)
+
+    decho $ln '-' $BL $CL $SL
+
+    if [[ ${CL} -eq 1 ]]; then
+        # A comment line will never end a comment group.
+        if [[ -z ${COMMENT_GROUP_START} ]]; then
+            COMMENT_GROUP_START=$ln
         fi
+
+        if [[ -n ${COMMAND_GROUP_START} ]]; then
+            # echo ' -- Command Stop.'
+            write_commands ${COMMAND_GROUP_START} $((ln - 1)) $fn
+            COMMAND_GROUP_START=''
+            fn=$((fn + 1))
+        fi
+
+    elif [[ ${BL} -eq 1 ]]; then
+        # A blank line will only end a command group.
+        if [[ -n ${COMMAND_GROUP_START} ]]; then
+            write_commands ${COMMAND_GROUP_START} $((ln - 1)) $fn
+            COMMAND_GROUP_START=''
+            fn=$((fn + 1))
+        fi
+    elif [[ ${SL} -eq 1 ]]; then
+        # Must do nothing but let the loop continue for spaced lines.
+        continue
     else
-        # Setup the temporary file name.
-        fname="${TMP_DIR}/cmd_${NUMS[${fn}]}"
-        if [[ $DEBUG == 'Y' ]]; then
-            echo ' --' $FIRST_LINE $ln 'Command to be run.'
-            echo ' --- ' $fname
+        # A command will end a comment group.
+        if [[ -n ${COMMENT_GROUP_START} ]]; then
+            write_comments ${COMMENT_GROUP_START} $((ln - 1)) $fn
+            COMMENT_GROUP_START=''
         fi
-        # Grab the line numbers with sed and print them.
-        # Remove blank lines grep.
-        sed -n -e "${FIRST_LINE},${ln} p" $INFILE | grep -v '^$' > $fname
 
-        # Icrement the "first line" to the next line number.
-        FIRST_LINE=$((ln + 1))
-        # Increment the file number index since we just used the current one.
-        fn=$((fn + 1))
+        # A command will always end a command group, but will only
+        # write_commands if a command group exists.
+        if [[ -z ${COMMAND_GROUP_START} ]]; then
+            COMMAND_GROUP_START=$ln
+        elif [[ -n ${COMMAND_GROUP_START} ]]; then
+            write_commands ${COMMAND_GROUP_START} $((ln - 1)) $fn
+            COMMAND_GROUP_START=$ln
+            fn=$((fn + 1))
+        fi
+
     fi
-done < $INFILE
+done
 
+# write_lines $COMMENT_GROUP_START $ln $fn
 
-# First, provide some seperation to allow for easier copy / paste operations.
-echo -e '\n\n'
+if [[ -n ${COMMAND_GROUP_START} ]]; then
+    decho 'Command(s) left to do: ' ${COMMAND_GROUP_START} $ln $fn
+    write_commands ${COMMAND_GROUP_START} $ln $fn
+elif [[ -n ${COMMENT_GROUP_START} ]]; then
+    decho 'Comment(s) left to do: ' ${COMMENT_GROUP_START} $ln $fn
+    write_comments ${COMMENT_GROUP_START} $ln $fn
+else
+    decho 'Everything done?'
+fi
 
-# Loop through the temporary files that we have created.
-for cmd_file in $(ls -1 ${TMP_DIR}/cmd_*)
+for i in $(seq 0 $fn)
 do
-    # Capture the single command to be run.
-    LINE=$(grep -v '#' $cmd_file)
-
-    if [[ $DEBUG == 'Y' ]]; then
-        echo ' -- ' $(basename $cmd_file)
-    fi
-
-    # Show the command prompt.
-    # Must be quoted in case there is a trailing space.
-    echo -n "${CMD_PROMPT}"
-
-    # Show the command we are going to run.
-    echo $LINE
-
-    if [[ ! $DEBUG == 'Y' ]]; then
-        # Some commands have wierd output on stardard error when
-        # bash kills them due to a resource limit (ulimit).
-        source $cmd_file > ${cmd_file}_out 2>&1
-        wierdness=$(egrep $cmd_file ${cmd_file}_out)
-        if [[ -z $wierdness ]]; then
-            cat ${cmd_file}_out
-        else
-            echo 'wierd error from bash here.'
-            echo '----'
-            cat ${cmd_file}_out
-            echo '----'
-        fi
-    fi
-
-    # Provide a blank line between output.
     echo
+    num=${NUMS[${i}]}
+    CMTS_FILE="${TMP_DIR}/cmts_${num}"
+    CMD_FILE="${TMP_DIR}/cmd_${num}"
+    if [[ -f $CMTS_FILE ]]; then
+        # Remove the # (and whitespace) from the start of the line.
+        cat $CMTS_FILE | sed -e 's/^#[ ]*//g'
+    fi
+
+    echo
+
+    if [[ -f $CMD_FILE ]]; then
+        # echo ' --' $CMD_FILE
+        echo '[source, console]'
+        echo '----'
+        # Show the command prompt.
+        # Must be quoted in case there is a trailing space.
+        echo -n "${CMD_PROMPT}"
+        cat $CMD_FILE
+        if [[ ! $DEBUG == 'Y' ]]; then
+            # Some commands have wierd output on stardard error when
+            # bash kills them due to a resource limit (ulimit).
+            source $CMD_FILE > ${CMD_FILE}_out 2>&1
+            wierdness=$(egrep $CMD_FILE ${CMD_FILE}_out)
+            if [[ -z $wierdness ]]; then
+                cat ${CMD_FILE}_out
+                else
+                echo 'wierd error from bash here.'
+                echo '----'
+                cat ${CMD_FILE}_out
+                echo '----'
+            fi
+        fi
+        echo '----'
+    fi
 done
 
 # Last, provide a couple of blank lines to again provied some seperation.
 echo -e '\n\n'
+
+# head ${TMP_DIR}/cmd_*
+# head ${TMP_DIR}/cmts_*
 
 # Remove the temporary files.
 rm -rf $TMP_DIR
