@@ -234,6 +234,7 @@ class CardFile:
 
         # Examples are stored here.
         self.examples = ''
+        self.included_examples = ''
 
         # Initialize counts.
         self.counts = {'examples': 0, 'cards': 0}
@@ -250,6 +251,12 @@ class CardFile:
             for l in self.examples.split('\n'):
                 if l.startswith('----'):
                     cnt += 1
+
+            for l in self.included_examples.split('\n'):
+                if l.startswith('----'):
+                    cnt += 1
+
+            self.counts['examples'] = int(cnt / 2)
             self.counts['examples'] = int(cnt / 2)
 
         if ns.output_flashcards:
@@ -365,6 +372,11 @@ class CardFile:
                 t = text.strip().split('::')
                 inc_file = t[1][3:-2]
                 text = 'include::./' + inc_file + '[]'
+
+                # A hack to get a count of included examples in the count.
+                for l in open(inc_file, 'r'):
+                    self.included_examples += l.rstrip(' ') + '\n'
+
 
             self.examples = self.examples + text.rstrip(' ') + '\n'
 

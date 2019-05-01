@@ -143,6 +143,11 @@ if [[ -d './scripts' ]]; then
     cp -r ./scripts ${F_OUT_DIR}/.
 fi
 
+if [[ -d './includes' ]]; then
+    echo 'Copying includes to: ' $F_OUT_DIR
+    cp -r ./includes ${F_OUT_DIR}/.
+fi
+
 for d in ${DIRS}
 do
     # echo $d
