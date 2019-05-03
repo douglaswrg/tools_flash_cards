@@ -199,11 +199,38 @@ do
             wierdness=$(egrep $CMD_FILE ${CMD_FILE}_out)
             if [[ -z $wierdness ]]; then
                 cat ${CMD_FILE}_out
-                else
-                echo 'wierd error from bash here.'
-                echo '----'
-                cat ${CMD_FILE}_out
-                echo '----'
+            else
+                # If there is an error in the file, it will probably look
+                # somthing like this:
+                #
+                # ${CMD_FILE}: line 1: 23851 File size limit exceeded${CMD}...
+                #
+                # For some reason the orignal command does not have any
+                # seperation from the error being reported.
+                #
+                # Awk is used to remove the following from the beginning of the
+                # line.
+                # - sourced file name
+                # - line number
+                # - processess number
+                # and the orignal command from the end of the line.
+                #
+                # All of this is to recreate what the error looks like normally
+                # on the command line as apposed to what it looks like when
+                # sourced from a file.
+                CMD=$(cat $CMD_FILE | cut -d' ' -f1)
+                cat ${CMD_FILE}_out | \
+                    awk -v CMD="${CMD}" \
+                        '{
+                            # Remove the first 5 columns
+                            for(i=5;i<=NF;++i) $(i-4) = $i
+                            # Locate the command in the record;
+                            # the beginning character is assigned to RSTART
+                            match($0, CMD)
+                            # Prints the entire record starting at the first
+                            # character to where the CMD string was found.
+                            print substr($0, 1, RSTART)
+                         }'
             fi
         fi
         echo '----'
