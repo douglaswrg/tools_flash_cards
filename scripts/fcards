@@ -338,6 +338,12 @@ class CardFile:
             self.examples = '== ' + self.cards['heading']['cards'][0][0] + '\n'
 
     def add_key(self, header):
+        if self.section == 'examples':
+            # Examples are exempt here, but we need to keep the header in the
+            # text.
+            self.examples = self.examples + '=== ' + header + '\n'
+            return
+
         self.cards[self.section]['cards'].append([header, ''])
 
     def add_text(self, text):
