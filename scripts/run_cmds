@@ -83,6 +83,14 @@ NUM_LINES=$(cat $INFILE | wc -l)
 # be fewer commnad groups than there are lines in the file.
 NUMS=($(seq -w $NUM_LINES))
 
+# If we have less than 10 lines, we need to pad the numbers manually.
+if [[ NUM_LINES -lt 10 ]]; then
+    for n in ${!NUMS[@]}
+    do
+        NUMS[$n]="0${NUMS[$n]}"
+    done
+fi
+
 # Use awk to get blank, commented, and spaced line numbers.
 FILE_BL="${TMP_DIR}/lines_blank"
 FILE_CL="${TMP_DIR}/lines_comment"
