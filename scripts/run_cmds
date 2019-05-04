@@ -66,8 +66,11 @@ function write_commands {
     START=$1
     STOP=$2
     FN=$3
-    fname="${TMP_DIR}/cmd_${NUMS[${FN}]}"
-    decho ' --- write_commands: ' $START $STOP $FN $fname
+    if [[ ${IN_EXAMPLE} == 'N' ]]; then
+        touch ${TMP_DIR}/not_ex_cmd_${NUMS[${FN}]}
+    fi
+    fname="${TMP_DIR}/cmd_${NUMS[${FN}]}_${NUMS[$sub_fn]}"
+    decho ' --- write_commands: ' $IN_EXAMPLE $sub_fn $START $STOP $FN $fname
     sed -n -e "${START},${STOP} p" $INFILE > $fname
     # echo
 }
@@ -75,9 +78,12 @@ function write_commands {
 # Create an array of numbers that are padded with zeroes to help the file names
 # have a set alphanumeric sort order.
 NUM_LINES=$(cat $INFILE | wc -l)
+
+# Of course this creates too many numbers, but it is guaranteed that there will
+# be fewer commnad groups than there are lines in the file.
 NUMS=($(seq -w $NUM_LINES))
 
-# Use awk to get blank lines and commented line numbers.
+# Use awk to get blank, commented, and spaced line numbers.
 FILE_BL="${TMP_DIR}/lines_blank"
 FILE_CL="${TMP_DIR}/lines_comment"
 FILE_SL="${TMP_DIR}/lines_spaced"
@@ -85,35 +91,24 @@ awk '/^$/  {print FNR}' $INFILE > ${FILE_BL}
 awk '/^#/  {print FNR}' $INFILE > ${FILE_CL}
 awk '/^  / {print FNR}' $INFILE > ${FILE_SL}
 
-SKIP_LINES=$(cat ${FILE_BL} ${FILE_CL} | sort -n)
-
-#if [[ $DEBUG == 'Y' ]]; then
-#    echo ' - Number of alphanum words:'
-#    echo ${#NUMS[*]}
-#    echo ' - alphanum words:'
-#    echo ${NUMS[*]}
-#    echo ' - Blank line numbers:'
-#    cat ${FILE_BL}
-#    echo ' - Comment line numbers:'
-#    cat ${FILE_CL}
-#    echo ' - Spaced line numbers:'
-#    cat ${FILE_SL}
-#    echo ' --- '
-#fi
-
 # Collection of lines that belong to a set of adjacent comments.
 COMMENT_GROUP_START=''
+# Collection of lines that belong to a set of adjacent commands.
 COMMAND_GROUP_START=''
+IN_EXAMPLE='Y'
 
 # File number index being created.
 fn=0
-
+# Subfile number.
+sub_fn=0
 for ln in $(seq $NUM_LINES)
 do
+    # Determine the type of line this line number is.
     BL=$(check_blanks $ln ; echo $?)
     CL=$(check_comments $ln ; echo $?)
     SL=$(check_spaced $ln ; echo $?)
 
+    # Debug to show line number and which type was detected.
     decho $ln '-' $BL $CL $SL
 
     if [[ ${CL} -eq 1 ]]; then
@@ -122,8 +117,16 @@ do
             COMMENT_GROUP_START=$ln
         fi
 
+        # Collect the line number from the input file so we can check if it is
+        # marking this group as not an example.
+        cmt_line=$(sed -n "${ln} p" $INFILE)
+        if [[ $cmt_line == '#:notexample' ]]; then
+            IN_EXAMPLE='N'
+        fi
+
+        # If in a command group, write it out, reset the start number, and
+        # increment the file number for the next command group.
         if [[ -n ${COMMAND_GROUP_START} ]]; then
-            # echo ' -- Command Stop.'
             write_commands ${COMMAND_GROUP_START} $((ln - 1)) $fn
             COMMAND_GROUP_START=''
             fn=$((fn + 1))
@@ -134,7 +137,12 @@ do
         if [[ -n ${COMMAND_GROUP_START} ]]; then
             write_commands ${COMMAND_GROUP_START} $((ln - 1)) $fn
             COMMAND_GROUP_START=''
+            # Reset if we are in an example or not.
+            IN_EXAMPLE='Y'
+            # Increment the file number for the next command group.
             fn=$((fn + 1))
+            # Reset the subgroup numbering.
+            sub_fn=0
         fi
     elif [[ ${SL} -eq 1 ]]; then
         # Must do nothing but let the loop continue for spaced lines.
@@ -146,21 +154,19 @@ do
             COMMENT_GROUP_START=''
         fi
 
-        # A command will always end a command group, but will only
+        # A command will always start a command group, but will only
         # write_commands if a command group exists.
         if [[ -z ${COMMAND_GROUP_START} ]]; then
             COMMAND_GROUP_START=$ln
         elif [[ -n ${COMMAND_GROUP_START} ]]; then
             write_commands ${COMMAND_GROUP_START} $((ln - 1)) $fn
             COMMAND_GROUP_START=$ln
-            fn=$((fn + 1))
+            sub_fn=$((sub_fn + 1))
         fi
-
     fi
 done
 
-# write_lines $COMMENT_GROUP_START $ln $fn
-
+# Block to wrap up the block that we are end after the end of the file.
 if [[ -n ${COMMAND_GROUP_START} ]]; then
     decho 'Command(s) left to do: ' ${COMMAND_GROUP_START} $ln $fn
     write_commands ${COMMAND_GROUP_START} $ln $fn
@@ -171,34 +177,64 @@ else
     decho 'Everything done?'
 fi
 
+# Loop through the number of command file blocks that were created in the
+# previous loop.
 for i in $(seq 0 $fn)
 do
-    echo
+    # Grabe the first number from the created zero-padded numbers.
     num=${NUMS[${i}]}
-    CMTS_FILE="${TMP_DIR}/cmts_${num}"
-    CMD_FILE="${TMP_DIR}/cmd_${num}"
-    if [[ -f $CMTS_FILE ]]; then
-        # Remove the # (and whitespace) from the start of the line.
-        cat $CMTS_FILE | sed -e 's/^#[ ]*//g'
+
+    # If the first file does not exist, we can continue.
+    if [[ ! -f ${TMP_DIR}/cmd_${num}_01 ]]; then
+        continue
     fi
 
+    # Determine if we have a comment file for this number.
+    CMTS_FILE="${TMP_DIR}/cmts_${num}"
+    if [[ -f $CMTS_FILE ]]; then
+        # Remove the # (and whitespace) from the start of the line.
+        # Also remove the lines for :notexample.
+        cat $CMTS_FILE | sed -e 's/^#[ ]*//g' | grep -v '^:'
+    fi
+
+    # Keep a line betwen comments and the literal block.
     echo
 
-    if [[ -f $CMD_FILE ]]; then
-        # echo ' --' $CMD_FILE
-        echo '[source, console]'
-        echo '----'
+    # Check to see if this is an actual command example and set the string
+    # for the literal block.
+    if [[ ! -f ${TMP_DIR}/not_ex_cmd_${num} ]]; then
+        block_chars='----'
+    else
+        block_chars='....'
+    fi
+
+
+    # Start of the literal block.
+    echo '[source, console]'
+    echo $block_chars
+
+    # Collect the commands for this group and loop through them.
+    cmd_files=$(ls -1 ${TMP_DIR}/cmd_${num}*)
+    for CMD_FILE in $cmd_files
+    do
         # Show the command prompt.
         # Must be quoted in case there is a trailing space.
+        # The -n skips the trailing newline so that the command is on
+        # the same line.
         echo -n "${CMD_PROMPT}"
         cat $CMD_FILE
+
+        # Skip running the commands if we are debugging the script.
         if [[ ! $DEBUG == 'Y' ]]; then
             # Some commands have wierd output on stardard error when
             # bash kills them due to a resource limit (ulimit).
             source $CMD_FILE > ${CMD_FILE}_out 2>&1
             wierdness=$(egrep $CMD_FILE ${CMD_FILE}_out)
             if [[ -z $wierdness ]]; then
-                cat ${CMD_FILE}_out
+                # When displaying the output file, we need to ensure that it
+                # does not conflict with the literal block text.
+                cat ${CMD_FILE}_out | sed -e 's/^----/ ---/g' \
+                    -e 's/^\.\.\.\./ .../g'
             else
                 # If there is an error in the file, it will probably look
                 # somthing like this:
@@ -233,15 +269,11 @@ do
                          }'
             fi
         fi
-        echo '----'
-    fi
+    done
+    # End of the literal block and an extra line.
+    echo $block_chars
+    echo
 done
-
-# Last, provide a couple of blank lines to again provied some seperation.
-echo -e '\n\n'
-
-# head ${TMP_DIR}/cmd_*
-# head ${TMP_DIR}/cmts_*
 
 # Remove the temporary files.
 rm -rf $TMP_DIR
