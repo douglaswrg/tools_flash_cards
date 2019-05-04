@@ -83,14 +83,6 @@ NUM_LINES=$(cat $INFILE | wc -l)
 # be fewer commnad groups than there are lines in the file.
 NUMS=($(seq -w $NUM_LINES))
 
-# If we have less than 10 lines, we need to pad the numbers manually.
-if [[ NUM_LINES -lt 10 ]]; then
-    for n in ${!NUMS[@]}
-    do
-        NUMS[$n]="0${NUMS[$n]}"
-    done
-fi
-
 # Use awk to get blank, commented, and spaced line numbers.
 FILE_BL="${TMP_DIR}/lines_blank"
 FILE_CL="${TMP_DIR}/lines_comment"
@@ -193,7 +185,7 @@ do
     num=${NUMS[${i}]}
 
     # If the first file does not exist, we can continue.
-    if [[ ! -f ${TMP_DIR}/cmd_${num}_01 ]]; then
+    if [[ ! -f ${TMP_DIR}/cmd_${num}_${NUMS[0]} ]]; then
         continue
     fi
 
@@ -222,8 +214,7 @@ do
     echo $block_chars
 
     # Collect the commands for this group and loop through them.
-    cmd_files=$(ls -1 ${TMP_DIR}/cmd_${num}*)
-    for CMD_FILE in $cmd_files
+    for CMD_FILE in $(ls -1 ${TMP_DIR}/cmd_${num}* | sort)
     do
         # Show the command prompt.
         # Must be quoted in case there is a trailing space.
