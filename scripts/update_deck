@@ -37,7 +37,7 @@ function output_locations {
     echo -en "\tSection directories in:    "
     echo ${A_OUT_DIR}
     echo -en "\tExample files written to:  "
-    echo -n ${ADOC_OUT_DIR}
+    echo -n ${A_OUT_DIR}
     echo -e '\n'
 }
 
@@ -153,39 +153,41 @@ do
     # echo $d
     x=`echo $d | sed -e 's/\//_/'`
     ex_file="examples_${x}"
+    ex_f_out_file="${F_OUT_DIR}/${ex_file}"
+    ex_a_out_file="${A_OUT_DIR}/${ex_file}"
 
     # The fcards tool is used to read the directory, and create the following:
     #  - collection of examples from all files.
     #  - collection of flash cards from all files.
-    ${FCARD} ${VERBOSE} -i $d -oe ${F_OUT_DIR}/${ex_file}.adoc \
+    ${FCARD} ${VERBOSE} -i $d -oe ${ex_f_out_file}.adoc \
                               -of ${F_OUT_DIR}/cards_${x}
 
     # Collect a count of the number of 2nd level headers to see if we need to
     # creating an HTML file makes sense.
-    num_ex=`grep -c '^== ' ${F_OUT_DIR}/${ex_file}.adoc`
+    num_ex=`grep -c '^== ' ${ex_f_out_file}.adoc`
     if [[ $num_ex -eq 0 ]]; then
-        if [[ -f {F_OUT_DIR}/${ex_file}.adoc ]]; then
-            rm ${F_OUT_DIR}/${ex_file}.adoc
+        if [[ -f ${ex_f_out_file}.adoc ]]; then
+            rm ${ex_f_out_file}.adoc
         fi
-        if [[ -f ${ADOC_OUT_DIR}/${ex_file}.html ]]; then
-            rm ${ADOC_OUT_DIR}/${ex_file}.html
+        if [[ -f ${ex_a_out_file}.html ]]; then
+            rm ${ex_a_out_file}.html
         fi
     else
         # Create a new HTML file in F_OUT_DIR -- using it as a temporary
         # directory.
-        ${ADOC} -n -q -o ${F_OUT_DIR} ${F_OUT_DIR}/${ex_file}.adoc
+        ${ADOC} -n -q -o ${F_OUT_DIR} ${ex_f_out_file}.adoc
 
         # If the current HTML file exists, see if there is a difference in the
         # newly created file.
-        if [[ -f ${ADOC_OUT_DIR}/${ex_file}.html ]]; then
-            diff ${F_OUT_DIR}/${ex_file}.html ${ADOC_OUT_DIR}/${ex_file}.html \
+        if [[ -f ${ex_a_out_file}.html ]]; then
+            diff ${ex_f_out_file}.html ${ex_a_out_file}.html \
                 > /dev/null
         fi
         # If there is a difference or it does not currently exist, copy the
         # newly created file.
-        if [[ ! -f ${ADOC_OUT_DIR}/${ex_file}.html || $? -gt 0 ]]; then
+        if [[ ! -f ${ex_a_out_file}.html || $? -gt 0 ]]; then
             echo ' - updating: ' ${ex_file}
-            cp ${F_OUT_DIR}/${ex_file}.html ${ADOC_OUT_DIR}/${ex_file}.html 
+            cp ${ex_f_out_file}.html ${ex_a_out_file}.html
         fi
     fi
 
