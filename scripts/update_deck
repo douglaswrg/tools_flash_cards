@@ -15,7 +15,7 @@ function usage {
     echo -e '\t-ce\tCollect all examples in to one big example file.'
     echo -e '\t-sd\tShow the delimiters used for flash cards.\n'
 
-    echo 'There are two variables that are used to determine output directories' 
+    echo 'There are two variables that are used to determine output directories'
     echo -e 'that files are written to:\n'
 
     echo -e '\tFCARD_OUT_DIR is used to determine the base output directory of'
