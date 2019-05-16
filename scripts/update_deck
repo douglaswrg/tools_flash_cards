@@ -207,6 +207,10 @@ if [[ ${#COLLECT_EXAMPLES} -gt 0 ]]; then
     ${FCARD} ${VERBOSE} -he ${F_OUT_DIR}/examples.header
 fi
 
+mkdir -p ${F_OUT_DIR}/old_inc
+mv ${F_OUT_DIR}/examples*.inc ${F_OUT_DIR}/old_inc/
+mv ${F_OUT_DIR}/examples.adoc ${F_OUT_DIR}/old_inc/
+
 for d in ${DIRS}
 do
     x=`echo $d | sed -e 's/\//_/'`
@@ -238,8 +242,29 @@ if [[ ${#COLLECT_EXAMPLES} -gt 0 ]]; then
     do
         cat $inc_file >> ${F_OUT_DIR}/examples.adoc
     done
-    echo 'Creating example file.'
-    ${ADOC} -n -q -o ${A_OUT_DIR}/ ${F_OUT_DIR}/examples.adoc
+
+    # Determine if we need to create a new doc.
+    CE_NEEDED=0
+    num_new=$(ls ${F_OUT_DIR}/examples*.inc | wc -l 2> /dev/null)
+    num_old=$(ls ${F_OUT_DIR}/old_inc/examples*.inc | wc -l 2> /dev/null)
+    if [[ $num_new -ne $num_old ]]; then
+        CE_NEEDED=1
+    fi
+    if [[ -f ${F_OUT_DIR}/old_inc/examples.adoc ]]; then
+        diff ${F_OUT_DIR}/examples.adoc ${F_OUT_DIR}/old_inc/examples.adoc \
+            > /dev/null
+        CE_NEEDED=$?
+    else
+        CE_NEEDED=1
+    fi
+
+
+    if [[ $CE_NEEDED -eq 1 ]]; then
+        echo 'Creating example file.'
+        ${ADOC} -n -q -o ${A_OUT_DIR}/ ${F_OUT_DIR}/examples.adoc
+    else
+        echo 'Example file unchanged.'
+    fi
 fi
 
 # Look to see if we have an objectives file.
