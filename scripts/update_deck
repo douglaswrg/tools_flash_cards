@@ -217,6 +217,17 @@ fi
 if [[ -d './includes' ]]; then
     echo ' - Copying includes to: ' $F_OUT_DIR
     cp -r ./includes ${F_OUT_DIR}/.
+    # Prep the section headings in include files.
+    for inc_file in ${F_OUT_DIR}/includes/inc*
+    do
+        # echo " - $inc_file"
+        # egrep '^= ' $inc_file
+        if  [[ ${#COLLECT_EXAMPLES} -gt 0 ]]; then
+            sed -i .orig -e 's/\(^=\)/====/' $inc_file
+        else
+            sed -i .orig -e 's/\(^=\)/===/' $inc_file
+        fi
+    done
 fi
 
 # Create example files and cards for each subdirectory.
