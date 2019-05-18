@@ -158,6 +158,18 @@ else
     A_OUT_DIR=${TMP_DIR}/${BASE_DIR}
 fi
 
+OLD_F_OUT_DIR=${F_OUT_DIR}_old
+
+ARCH_CREATED=0
+# If the output directory already exists, "archive" it.
+if [[ -d ${F_OUT_DIR} ]]; then
+    echo ' - Creating archive of old output.'
+    # If the archive directory exists, remove it.
+    test -d ${OLD_F_OUT_DIR} && rm -rf ${OLD_F_OUT_DIR}
+    mv ${F_OUT_DIR} ${OLD_F_OUT_DIR}
+    ARCH_CREATED=1
+fi
+
 mkdir -p ${A_OUT_DIR} ${F_OUT_DIR}
 
 if [[ -n $1 && $1 == '-h' ]]; then
@@ -191,26 +203,23 @@ set +e
 
 collect_directories
 
+# If collecting examples, then we need a header file.
+if [[ ${#COLLECT_EXAMPLES} -gt 0 ]]; then
+    ${FCARD} ${VERBOSE} -he ${F_OUT_DIR}/examples.header
+fi
+
+# Copy directories from source tree as needed.
 if [[ -d './scripts' ]]; then
-    echo 'Copying scripts to: ' $F_OUT_DIR
+    echo ' - Copying scripts to: ' $F_OUT_DIR
     cp -r ./scripts ${F_OUT_DIR}/.
 fi
 
 if [[ -d './includes' ]]; then
-    echo 'Copying includes to: ' $F_OUT_DIR
+    echo ' - Copying includes to: ' $F_OUT_DIR
     cp -r ./includes ${F_OUT_DIR}/.
 fi
 
-if [[ ${#COLLECT_EXAMPLES} -gt 0 ]]; then
-    # echo 'Will build single example file:'
-    # echo -e '\t' ${A_OUT_DIR}/examples.html
-    ${FCARD} ${VERBOSE} -he ${F_OUT_DIR}/examples.header
-fi
-
-mkdir -p ${F_OUT_DIR}/old_inc
-mv ${F_OUT_DIR}/examples*.inc ${F_OUT_DIR}/old_inc/
-mv ${F_OUT_DIR}/examples.adoc ${F_OUT_DIR}/old_inc/
-
+# Create example files and cards for each subdirectory.
 for d in ${DIRS}
 do
     x=`echo $d | sed -e 's/\//_/'`
@@ -236,34 +245,40 @@ do
     done
 done
 
+# Collect example files in to a single doc and build it if needed.
 if [[ ${#COLLECT_EXAMPLES} -gt 0 ]]; then
     cat ${F_OUT_DIR}/examples.header > ${F_OUT_DIR}/examples.adoc
-    for inc_file in  $(ls -1 ${F_OUT_DIR}/examples_*.inc | sort)
+    for inc_file in  $(ls -1 ${F_OUT_DIR}/examples_*.inc 2> /dev/null | sort)
     do
         cat $inc_file >> ${F_OUT_DIR}/examples.adoc
     done
 
-    # Determine if we need to create a new doc.
-    CE_NEEDED=0
-    num_new=$(ls ${F_OUT_DIR}/examples*.inc | wc -l 2> /dev/null)
-    num_old=$(ls ${F_OUT_DIR}/old_inc/examples*.inc | wc -l 2> /dev/null)
-    if [[ $num_new -ne $num_old ]]; then
-        CE_NEEDED=1
-    fi
-    if [[ -f ${F_OUT_DIR}/old_inc/examples.adoc ]]; then
-        diff ${F_OUT_DIR}/examples.adoc ${F_OUT_DIR}/old_inc/examples.adoc \
-            > /dev/null
+    CE_NEEDED=1
+    if [[ ${ARCH_CREATED} -eq 1 ]]; then
+        # Determine if we need to create a new doc by using a recursive diff
+        # between the archive and current output directories.
+        diff -q -x 'cards_*' -x 'examples.header' -x 'cmds_*' \
+            -r ${F_OUT_DIR} ${OLD_F_OUT_DIR} &> /dev/null
         CE_NEEDED=$?
-    else
-        CE_NEEDED=1
     fi
 
-
-    if [[ $CE_NEEDED -eq 1 ]]; then
-        echo 'Creating example file.'
-        ${ADOC} -n -q -o ${A_OUT_DIR}/ ${F_OUT_DIR}/examples.adoc
+    # Determine the message to be displayed.
+    if [[ $ARCH_CREATED -eq 0 || ! -f ${A_OUT_DIR}/examples.html ]]; then
+        # If an archive was not created, or if the example file does not exit.
+        echo ' - Creating example file.'
+        BUILD_IT=1
+    elif [[ $CE_NEEDED -eq 1 ]]; then
+        # Diff determined an update is needed.
+        echo ' - Updating example file.'
+        BUILD_IT=1
     else
-        echo 'Example file unchanged.'
+        echo ' - Example file unchanged.'
+        BUILD_IT=0
+    fi
+
+    # Build if needed.
+    if [[ $BUILD_IT -eq 1 ]]; then
+        ${ADOC} -n -q -o ${A_OUT_DIR}/ ${F_OUT_DIR}/examples.adoc
     fi
 fi
 
